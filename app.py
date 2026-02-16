@@ -153,8 +153,8 @@ def main():
             # Ignora estornos de cartão ou transferências internas positivas
             filtro_entradas = (
                 (df_mes['Valor'] > 0) & 
-                (df_mes['Tipo'] != "Pagamento de cartão") &
-                (~df_mes['Transação'].str.contains("Resgate", case=False, na=False)) # Ignora resgate de investimento como receita
+                (df_mes['Tipo'] != "Pagamento de cartão"))# &
+                #(~df_mes['Transação'].str.contains("Resgate", case=False, na=False)) # Ignora resgate de investimento como receita
             )
             
             # 2. Definição do que é SAÍDA DE CONSUMO (Gasto Real)
@@ -166,9 +166,9 @@ def main():
                 # Não é pagamento de fatura (Categoria)
                 (df_mes['Tipo'] != "Pagamento de cartão") &
                 # Não é pagamento de fatura (Texto da Transação - previne erros de categorização)
-                (~df_mes['Transação'].str.contains("Fatura|Pagamento|Cartão", case=False, na=False)) &
+                (~df_mes['Transação'].str.contains("Fatura|Pagamento|Cartão", case=False, na=False)) #&
                 # Não é transferência para si mesma (Favorecido)
-                (df_mes['Favorecido'] != "Bianca Matos de Barros")
+                #(df_mes['Favorecido'] != "Bianca Matos de Barros")
             )
             
             entradas = df_mes[filtro_entradas]['Valor'].sum()
