@@ -78,7 +78,7 @@ def process_financial_logic(results):
         df['Data'] = pd.to_datetime(df['Data'], utc=True, errors='coerce').dt.tz_localize(None)
     return df
 
-# --- FUNÇÕES DE VISUALIZAÇÃO ---
+# --- VISUALIZAÇÃO ---
 
 def plot_macro_evolution(df):
     mapeamento = {
@@ -136,8 +136,9 @@ def plot_bank_treemap(df_mes):
     return px.treemap(df_banco, path=['Banco'], values='Valor', 
                       title="Concentração de Gastos por Instituição",
                       color='Valor', color_continuous_scale='Reds')
-# --- APP PRINCIPAL ---
 
+
+# --- MONTANDO O DASHBOARD ---
 def main():
     st.title("💲 Minhas finanças 💲")
     
@@ -171,11 +172,23 @@ def main():
             st.dataframe(df_mes[df_mes['Tipo'] == "Investimento"][['Transação', 'Valor', 'Banco']], hide_index=True)
 
     with tab2:
-        st.plotly_chart(plot_macro_evolution(df), width='stretch')
-        st.plotly_chart(px.sunburst(df[df['Valor']<0], path=['Banco', 'Tipo'], values='Valor', title="Distribuição por Banco"), width='stretch')
+        # Colocamos o Treemap e o Raio-X lado a lado
+        c1, c2 = st.columns(2)
+        with c1:
+            st.plotly_chart(plot_macro_evolution(df), width='stretch')
+        with c2:
+            st.plotly_chart(plot_bank_treemap(df_mes), width='stretch') # Passa o df do mês selecionado
+        
+        st.plotly_chart(px.sunburst(df[df['Valor']<0], path=['Banco', 'Tipo'], values='Valor', title="Raio-X Banco > Categoria"), width='stretch')
 
     with tab3:
-        st.info("Aqui entrará o gráfico de Escada de Alívio que discutimos!")
-
+        st.header("🔮 Futuro das Parcelas")
+        fig_proj = plot_relief_projection(df)
+        if fig_proj:
+            st.plotly_chart(fig_proj, width='stretch')
+            st.info("Este gráfico mostra como seu custo fixo cai à medida que as parcelas terminam.")
+        else:
+            st.write("Nenhuma parcela detectada no Notion.")
+            
 if __name__ == "__main__":
     main()
