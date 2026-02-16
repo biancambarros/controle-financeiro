@@ -57,9 +57,7 @@ def process_financial_logic(results):
     rows = []
     erros = 0
     sem_data = 0
-    
-    print(f"📡 API do Notion retornou {len(results)} registros brutos.")
-    
+        
     for page in results:
         p = page["properties"]
         try:
@@ -153,6 +151,7 @@ def main():
     tab1, tab2, tab3 = st.tabs(["📊 Visão Mensal", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"])
 
     with tab1:
+        print(f"📡 API do Notion retornou {len(df)} registros brutos.")
         meses = df['Mes_Pagamento'].unique().tolist()
         mes_sel = st.selectbox("Escolha o mês:", meses)
         df_mes = df[df['Mes_Pagamento'] == mes_sel]
