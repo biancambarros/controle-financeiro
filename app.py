@@ -4,8 +4,10 @@ import plotly.express as px
 import requests
 import streamlit as st
 
+
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="💲 Dashboard Financeiro", layout="wide")
+
 
 # --- CORE: BUSCA E LIMPEZA DE DADOS ---
 def get_property_value(prop):
@@ -55,8 +57,6 @@ def fetch_notion_data():
 
 def process_financial_logic(results):
     rows = []
-    erros = 0
-    sem_data = 0
         
     for page in results:
         p = page["properties"]
@@ -76,18 +76,39 @@ def process_financial_logic(results):
     df = pd.DataFrame(rows)
     if not df.empty:
         df['Data'] = pd.to_datetime(df['Data'], utc=True, errors='coerce').dt.tz_localize(None)
+        # Ordenamos primeiro por Data e depois por Mes_Pagamento para garantir a fila correta
+        df = df.sort_values(by=['Data', 'Mes_Pagamento'], na_position='first')
     return df
 
-# --- VISUALIZAÇÃO ---
 
+# --- VISUALIZAÇÃO ---
 def plot_macro_evolution(df):
     mapeamento = {
-        "Habitação": "Essencial", "Saúde": "Essencial", "Alimentação": "Essencial",
-        "Transporte": "Essencial", "Educação": "Essencial", "TV / Internet / Telefone": "Essencial",
-        "Assinaturas": "Lifestyle", "Lazer": "Lifestyle", "Cuidados Pessoais": "Lifestyle"
+        # Grupo: Rendas brutas
+        "Remuneração": "Rendas brutas",
+        "Cashback": "Rendas brutas",
+        "Rendimento": "Rendas brutas",
+        "Adicional": "Rendas brutas",
+        "Moradia": "Habitação",
+        "Reforma": "Habitação",
+        "Contas residenciais": "Despesas essenciais",
+        "Supermercado": "Despesas essenciais",
+        "Transporte": "Despesas essenciais",
+        "TV / Internet / Telefone": "Despesas essenciais",
+        "Pets": "Despesas essenciais",
+        "Plano de Saúde": "Saúde",
+        "Medicamentos": "Saúde",
+        "Nutrição e atividade física": "Saúde",
+        "Cuidados médicos ou psicológicos": "Saúde",
+        "Móveis e eletrodomésticos": "Despesas não essenciais",
+        "Decoração e jardinagem": "Despesas não essenciais",
+        "Vestuário": "Despesas não essenciais",
+        "Bares / Restaurantes / Delivery": "Despesas não essenciais",
+        "Estética": "Despesas não essenciais",
+        "Lazer": "Despesas não essenciais",
     }
     df['Macro_Grupo'] = df['Tipo'].apply(lambda x: mapeamento.get(x, 'Lifestyle'))
-    df_gastos = df[(df['Valor'] < 0) & (~df['Tipo'].isin(["Pagamento de cartão", "Investimento"]))].copy()
+    df_gastos = df[(df['Valor'] < 0) & (~df['Tipo'].isin(["Pagamento de cartão", "Investimentos"]))].copy()
     df_gastos['Valor_Abs'] = df_gastos['Valor'].abs()
     
     ordem_meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -132,7 +153,10 @@ def plot_relief_projection(df):
 
 
 def plot_bank_treemap(df_mes):
-    df_banco = df_mes[df_mes['Valor'] < 0].groupby('Banco')['Valor'].abs().sum().reset_index()
+    # Correção: .sum() vem antes do .abs()
+    # Primeiro somamos os valores negativos, depois tornamos o total positivo
+    df_banco = df_mes[df_mes['Valor'] < 0].groupby('Banco')['Valor'].sum().abs().reset_index()
+    
     return px.treemap(df_banco, path=['Banco'], values='Valor', 
                       title="Concentração de Gastos por Instituição",
                       color='Valor', color_continuous_scale='Reds')
@@ -160,7 +184,7 @@ def main():
         c1, c2 = st.columns(2)
         with c1:
             entradas = df_mes[(df_mes['Valor'] > 0) & (df_mes['Tipo'] != "Pagamento de cartão")]['Valor'].sum()
-            saidas = df_mes[(df_mes['Valor'] < 0) & (~df_mes['Tipo'].isin(["Pagamento de cartão", "Investimento"]))]['Valor'].abs().sum()
+            saidas = df_mes[(df_mes['Valor'] < 0) & (~df_mes['Tipo'].isin(["Pagamento de cartão", "Investimentos"]))]['Valor'].abs().sum()
             taxa = ( (entradas - saidas) / entradas * 100 ) if entradas > 0 else 0
             
             fig = px.pie(names=['Poupado', 'Gasto'], values=[max(0, entradas-saidas), saidas], hole=0.6, title=f"Saúde Financeira: {mes_sel}")
@@ -169,7 +193,7 @@ def main():
         
         with c2:
             st.subheader("Investimentos do Mês")
-            st.dataframe(df_mes[df_mes['Tipo'] == "Investimento"][['Transação', 'Valor', 'Banco']], hide_index=True)
+            st.dataframe(df_mes[df_mes['Tipo'] == "Investimentos"][['Transação', 'Valor', 'Banco']], hide_index=True)
 
     with tab2:
         # Colocamos o Treemap e o Raio-X lado a lado
