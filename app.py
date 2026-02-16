@@ -61,16 +61,17 @@ def process_financial_logic(results):
 # --- VISUALIZAÇÃO ---
 def plot_macro_evolution(df):
     mapeamento = {
-        "Remuneração": "Rendas brutas", "Cashback": "Rendas brutas", 
-        "Rendimento": "Rendas brutas", "Adicional": "Rendas brutas",
-        "Moradia": "Habitação", "Reforma": "Habitação",
+        "Remuneração": "Rendas", "Cashback": "Rendas", 
+        "Rendimento": "Rendas", "Adicional": "Rendas",
+        "Moradia": "Despesas essenciais", "Reforma": "Despesas essenciais",
         "Contas residenciais": "Despesas essenciais", "Supermercado": "Despesas essenciais",
         "Transporte": "Despesas essenciais", "TV / Internet / Telefone": "Despesas essenciais",
         "Pets": "Despesas essenciais", "Plano de Saúde": "Despesas essenciais", "Medicamentos": "Despesas essenciais",
         "Nutrição e atividade física": "Despesas essenciais", "Cuidados médicos ou psicológicos": "Despesas essenciais",
         "Trabalho": "Despesas essenciais", "Educação": "Despesas essenciais", "Móveis e eletrodomésticos": "Despesas não essenciais", 
         "Decoração e jardinagem": "Despesas não essenciais", "Vestuário": "Despesas não essenciais", "Bares / Restaurantes / Delivery": "Despesas não essenciais",
-        "Estética": "Despesas não essenciais", "Lazer": "Despesas não essenciais", "Presentes": "Presentes e doações", "Doações": "Presentes e doações" 
+        "Estética": "Despesas não essenciais", "Lazer": "Despesas não essenciais", "Presentes": "Despesas não essenciais", "Doações": "Despesas não essenciais",
+        "Investimentos": "Investimentos", "Impostos e taxas": "Impostos e taxas", "Previdência": "Impostos e taxas"
     }
     df['Macro_Grupo'] = df['Tipo'].apply(lambda x: mapeamento.get(x, 'Lifestyle'))
     # Filtro robusto para excluir investimentos (singular/plural)
@@ -138,48 +139,72 @@ def main():
     tab1, tab2, tab3 = st.tabs(["📊 Visão Mensal", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"])
 
     with tab1:
-        st.caption(f"📡 API do Notion retornou {len(df)} registros brutos.")
+        st.caption(f"📡 API do Notion retornou {len(df)} registros processados.")
         meses = df['Mes_Pagamento'].unique().tolist()
-        try: mes_sel = st.selectbox("Escolha o mês:", meses, index=meses.index("Janeiro") if "Janeiro" in meses else 0)
+        try: mes_sel = st.selectbox("Escolha o mês:", meses, index=meses.index("Fevereiro") if "Fevereiro" in meses else 0)
         except: mes_sel = st.selectbox("Escolha o mês:", meses)
         
         df_mes = df[df['Mes_Pagamento'] == mes_sel]
         
         c1, c2 = st.columns(2)
         with c1:
-            # Filtra investimentos e pagamentos de cartão para não sujar o cálculo de consumo
-            entradas = df_mes[(df_mes['Valor'] > 0) & (df_mes['Tipo'] != "Pagamento de cartão")]['Valor'].sum()
-            saidas = df_mes[(df_mes['Valor'] < 0) & 
-                            (~df_mes['Tipo'].astype(str).str.contains("Investiment", case=False)) & 
-                            (df_mes['Tipo'] != "Pagamento de cartão")]['Valor'].abs().sum()
+            # --- LÓGICA DE FILTRAGEM REFORÇADA ---
+            # 1. Definição do que é ENTRADA REAL (Salário, Benefícios, Cashback)
+            # Ignora estornos de cartão ou transferências internas positivas
+            filtro_entradas = (
+                (df_mes['Valor'] > 0) & 
+                (df_mes['Tipo'] != "Pagamento de cartão") &
+                (~df_mes['Transação'].str.contains("Resgate", case=False, na=False)) # Ignora resgate de investimento como receita
+            )
             
+            # 2. Definição do que é SAÍDA DE CONSUMO (Gasto Real)
+            # AQUI ESTÁ O SEGREDO: Excluímos tudo que é movimentação interna
+            filtro_saidas = (
+                (df_mes['Valor'] < 0) & 
+                # Não é investimento
+                (~df_mes['Tipo'].astype(str).str.contains("Investiment", case=False)) & 
+                # Não é pagamento de fatura (Categoria)
+                (df_mes['Tipo'] != "Pagamento de cartão") &
+                # Não é pagamento de fatura (Texto da Transação - previne erros de categorização)
+                (~df_mes['Transação'].str.contains("Fatura|Pagamento|Cartão", case=False, na=False)) &
+                # Não é transferência para si mesma (Favorecido)
+                (df_mes['Favorecido'] != "Bianca Matos de Barros")
+            )
+            
+            entradas = df_mes[filtro_entradas]['Valor'].sum()
+            saidas = df_mes[filtro_saidas]['Valor'].abs().sum()
+            
+            # Cálculo da Taxa
             taxa = ( (entradas - saidas) / entradas * 100 ) if entradas > 0 else 0
             
-            fig = px.pie(names=['Poupado (Investido + Caixa)', 'Gasto (Consumo)'], 
+            # Gráfico
+            fig = px.pie(names=['Poupado (Investido + Sobra)', 'Gasto (Consumo Real)'], 
                          values=[max(0, entradas-saidas), saidas], 
-                         hole=0.6, title=f"Saúde Financeira: {mes_sel}")
+                         hole=0.6, title=f"Fluxo de Caixa Líquido: {mes_sel}")
             fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
             st.plotly_chart(fig, width='stretch')
-        
+
+            # --- FERRAMENTA DE AUDITORIA (NOVO) ---
+            # Isso vai te mostrar EXATAMENTE o que está sendo somado.
+            with st.expander("🕵️‍♀️ Auditoria: O que compõe este Gasto?"):
+                st.write(f"Total calculado: R$ {saidas:,.2f}")
+                # Mostra as transações consideradas no cálculo
+                df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Banco', 'Tipo']].sort_values('Valor')
+                st.dataframe(df_auditoria, hide_index=True)
+
         with c2:
             st.subheader(f"Carteira de Investimentos: {mes_sel}")
             
-            # 1. Filtro Flexível (pega 'Investimento', 'Investimentos', etc)
+            # Filtro de Investimentos
             df_invest = df_mes[df_mes['Tipo'].astype(str).str.contains("Investiment", case=False, na=False)]
             
             if not df_invest.empty:
-                # 2. Cálculo do Saldo Líquido (Aportes [negativos] + Resgates [positivos])
                 saldo_liquido = df_invest['Valor'].sum()
-                
-                # Exibe o KPI de quanto você realmente guardou (ou sacou) líquido no mês
-                label_kpi = "Aplicação Líquida (Dinheiro Novo)" if saldo_liquido < 0 else "Resgate Líquido (Retirada)"
+                label_kpi = "Aplicação Líquida" if saldo_liquido < 0 else "Resgate Líquido"
                 st.metric(label=label_kpi, value=f"R$ {abs(saldo_liquido):,.2f}")
-                
-                # Mostra a tabela detalhada
                 st.dataframe(df_invest[['Transação', 'Valor', 'Banco']], hide_index=True)
             else:
-                st.info("Nenhuma movimentação de investimento neste mês.")
-
+                st.info("Sem movimentação de investimentos.")
     with tab2:
         c1, c2 = st.columns(2)
         with c1: st.plotly_chart(plot_macro_evolution(df), width='stretch')
