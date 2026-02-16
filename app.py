@@ -139,7 +139,7 @@ def main():
     tab1, tab2, tab3 = st.tabs(["📊 Visão Mensal", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"])
 
     with tab1:
-        st.caption(f"📡 API do Notion retornou {len(df)} registros processados.")
+        st.caption(f"📡 Há {len(df)} transações.")
         meses = df['Mes_Pagamento'].unique().tolist()
         try: mes_sel = st.selectbox("Escolha o mês:", meses, index=meses.index("Fevereiro") if "Fevereiro" in meses else 0)
         except: mes_sel = st.selectbox("Escolha o mês:", meses)
@@ -164,9 +164,9 @@ def main():
                 # Não é investimento
                 (~df_mes['Tipo'].astype(str).str.contains("Investiment", case=False)) & 
                 # Não é pagamento de fatura (Categoria)
-                (df_mes['Tipo'] != "Pagamento de cartão") &
+                (df_mes['Tipo'] != "Pagamento de cartão") #&
                 # Não é pagamento de fatura (Texto da Transação - previne erros de categorização)
-                (~df_mes['Transação'].str.contains("Fatura|Pagamento|Cartão", case=False, na=False)) #&
+                #(~df_mes['Transação'].str.contains("Fatura|Pagamento|Cartão", case=False, na=False)) #&
                 # Não é transferência para si mesma (Favorecido)
                 #(df_mes['Favorecido'] != "Bianca Matos de Barros")
             )
@@ -189,7 +189,7 @@ def main():
             with st.expander("🕵️‍♀️ Auditoria: O que compõe este Gasto?"):
                 st.write(f"Total calculado: R$ {saidas:,.2f}")
                 # Mostra as transações consideradas no cálculo
-                df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Banco', 'Tipo']].sort_values('Valor')
+                df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Valor')
                 st.dataframe(df_auditoria, hide_index=True)
 
         with c2:
