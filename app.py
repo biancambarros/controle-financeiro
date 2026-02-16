@@ -1,15 +1,18 @@
-import streamlit as st
+import datetime
 import pandas as pd
 import plotly.express as px
 import requests
-import datetime
+import streamlit as st
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Dashboard Financeiro - Bianca", layout="wide")
+st.set_page_config(page_title="💲 Dashboard Financeiro", layout="wide")
 
 # --- CORE: BUSCA E LIMPEZA DE DADOS ---
-
 def get_property_value(prop):
+    """
+    Função auxiliar para extrair o valor de texto de diferentes tipos de 
+    propriedades do Notion (Select, People, Relation, Rich Text).
+    """
     if not prop: return "N/A"
     p_type = prop.get("type")
     if p_type == "select": return prop["select"]["name"] if prop["select"] else "N/A"
@@ -19,6 +22,10 @@ def get_property_value(prop):
 
 @st.cache_data(ttl=600) # Cache de 10 minutos
 def fetch_notion_data():
+    """
+    Faz a comunicação direta com a API do Notion via protocolo HTTP (POST).
+    Implementa a lógica de paginação para garantir que todas as transações sejam capturadas, mesmo que ultrapassem 100 itens.
+    """
     token = st.secrets["NOTION_TOKEN"]
     db_id = st.secrets["DATABASE_ID"]
     url = f"https://api.notion.com/v1/databases/{db_id}/query"
@@ -26,17 +33,33 @@ def fetch_notion_data():
     
     all_pages = []
     has_more, next_cursor = True, None
+
+    # Loop de paginação: o Notion envia no máximo 100 registros por vez
     while has_more:
+        # Se existir um cursor, o payload pede a 'próxima página' de dados
         payload = {"start_cursor": next_cursor} if next_cursor else {}
         response = requests.post(url, json=payload, headers=headers)
+
+        # Tratamento de erro: interrompe o código se a API falhar
         if response.status_code != 200: raise Exception(f"Erro Notion: {response.text}")
+
+        # Converte a resposta bruta em um dicionário Python
         data = response.json()
+
+        # Adiciona os resultados à lista principal
         all_pages.extend(data.get("results", []))
+
+        # Verifica se ainda existem mais dados para buscar (paginação)
         has_more, next_cursor = data.get("has_more", False), data.get("next_cursor")
     return all_pages
 
 def process_financial_logic(results):
     rows = []
+    erros = 0
+    sem_data = 0
+    
+    print(f"📡 API do Notion retornou {len(results)} registros brutos.")
+    
     for page in results:
         p = page["properties"]
         try:
