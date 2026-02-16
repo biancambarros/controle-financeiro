@@ -153,7 +153,7 @@ def main():
             # Ignora estornos de cartão ou transferências internas positivas
             filtro_entradas = (
                 (df_mes['Valor'] > 0) & 
-                (df_mes['Tipo'] != "Pagamento de cartão"))# &
+                (df_mes['Tipo'] != "Pagamento de cartão")# &
                 #(~df_mes['Transação'].str.contains("Resgate", case=False, na=False)) # Ignora resgate de investimento como receita
             )
             
