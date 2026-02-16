@@ -4,17 +4,11 @@ import plotly.express as px
 import requests
 import streamlit as st
 
-
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="💲 Dashboard Financeiro", layout="wide")
 
-
 # --- CORE: BUSCA E LIMPEZA DE DADOS ---
 def get_property_value(prop):
-    """
-    Função auxiliar para extrair o valor de texto de diferentes tipos de 
-    propriedades do Notion (Select, People, Relation, Rich Text).
-    """
     if not prop: return "N/A"
     p_type = prop.get("type")
     if p_type == "select": return prop["select"]["name"] if prop["select"] else "N/A"
@@ -22,12 +16,8 @@ def get_property_value(prop):
     elif p_type == "rich_text": return prop["rich_text"][0]["plain_text"] if prop["rich_text"] else "N/A"
     return "N/A"
 
-@st.cache_data(ttl=600) # Cache de 10 minutos
+@st.cache_data(ttl=600)
 def fetch_notion_data():
-    """
-    Faz a comunicação direta com a API do Notion via protocolo HTTP (POST).
-    Implementa a lógica de paginação para garantir que todas as transações sejam capturadas, mesmo que ultrapassem 100 itens.
-    """
     token = st.secrets["NOTION_TOKEN"]
     db_id = st.secrets["DATABASE_ID"]
     url = f"https://api.notion.com/v1/databases/{db_id}/query"
@@ -36,28 +26,17 @@ def fetch_notion_data():
     all_pages = []
     has_more, next_cursor = True, None
 
-    # Loop de paginação: o Notion envia no máximo 100 registros por vez
     while has_more:
-        # Se existir um cursor, o payload pede a 'próxima página' de dados
         payload = {"start_cursor": next_cursor} if next_cursor else {}
         response = requests.post(url, json=payload, headers=headers)
-
-        # Tratamento de erro: interrompe o código se a API falhar
         if response.status_code != 200: raise Exception(f"Erro Notion: {response.text}")
-
-        # Converte a resposta bruta em um dicionário Python
         data = response.json()
-
-        # Adiciona os resultados à lista principal
         all_pages.extend(data.get("results", []))
-
-        # Verifica se ainda existem mais dados para buscar (paginação)
         has_more, next_cursor = data.get("has_more", False), data.get("next_cursor")
     return all_pages
 
 def process_financial_logic(results):
     rows = []
-        
     for page in results:
         p = page["properties"]
         try:
@@ -69,49 +48,37 @@ def process_financial_logic(results):
                 "Tipo": get_property_value(p["Tipo de despesa"]),
                 "Mes_Pagamento": get_property_value(p["Mês de pagamento"]),
                 "Favorecido": get_property_value(p["Favorecido"]),
-                "Parcela": get_property_value(p["Parcela"]) # Captura essencial para projeção
+                "Parcela": get_property_value(p["Parcela"])
             })
         except: continue
             
     df = pd.DataFrame(rows)
     if not df.empty:
         df['Data'] = pd.to_datetime(df['Data'], utc=True, errors='coerce').dt.tz_localize(None)
-        # Ordenamos primeiro por Data e depois por Mes_Pagamento para garantir a fila correta
         df = df.sort_values(by=['Data', 'Mes_Pagamento'], na_position='first')
     return df
-
 
 # --- VISUALIZAÇÃO ---
 def plot_macro_evolution(df):
     mapeamento = {
-        # Grupo: Rendas brutas
-        "Remuneração": "Rendas brutas",
-        "Cashback": "Rendas brutas",
-        "Rendimento": "Rendas brutas",
-        "Adicional": "Rendas brutas",
-        "Moradia": "Habitação",
-        "Reforma": "Habitação",
-        "Contas residenciais": "Despesas essenciais",
-        "Supermercado": "Despesas essenciais",
-        "Transporte": "Despesas essenciais",
-        "TV / Internet / Telefone": "Despesas essenciais",
-        "Pets": "Despesas essenciais",
-        "Plano de Saúde": "Saúde",
-        "Medicamentos": "Saúde",
-        "Nutrição e atividade física": "Saúde",
-        "Cuidados médicos ou psicológicos": "Saúde",
-        "Móveis e eletrodomésticos": "Despesas não essenciais",
-        "Decoração e jardinagem": "Despesas não essenciais",
-        "Vestuário": "Despesas não essenciais",
-        "Bares / Restaurantes / Delivery": "Despesas não essenciais",
-        "Estética": "Despesas não essenciais",
-        "Lazer": "Despesas não essenciais",
+        "Remuneração": "Rendas brutas", "Cashback": "Rendas brutas", 
+        "Rendimento": "Rendas brutas", "Adicional": "Rendas brutas",
+        "Moradia": "Habitação", "Reforma": "Habitação",
+        "Contas residenciais": "Despesas essenciais", "Supermercado": "Despesas essenciais",
+        "Transporte": "Despesas essenciais", "TV / Internet / Telefone": "Despesas essenciais",
+        "Pets": "Despesas essenciais", "Plano de Saúde": "Despesas essenciais", "Medicamentos": "Despesas essenciais",
+        "Nutrição e atividade física": "Despesas essenciais", "Cuidados médicos ou psicológicos": "Despesas essenciais",
+        "Trabalho": "Despesas essenciais", "Educação": "Despesas essenciais", "Móveis e eletrodomésticos": "Despesas não essenciais", 
+        "Decoração e jardinagem": "Despesas não essenciais", "Vestuário": "Despesas não essenciais", "Bares / Restaurantes / Delivery": "Despesas não essenciais",
+        "Estética": "Despesas não essenciais", "Lazer": "Despesas não essenciais", "Presentes": "Presentes e doações", "Doações": "Presentes e doações" 
     }
     df['Macro_Grupo'] = df['Tipo'].apply(lambda x: mapeamento.get(x, 'Lifestyle'))
-    df_gastos = df[(df['Valor'] < 0) & (~df['Tipo'].isin(["Pagamento de cartão", "Investimentos"]))].copy()
+    # Filtro robusto para excluir investimentos (singular/plural)
+    df_gastos = df[(df['Valor'] < 0) & (~df['Tipo'].astype(str).str.contains("Investiment", case=False)) & (df['Tipo'] != "Pagamento de cartão")].copy()
     df_gastos['Valor_Abs'] = df_gastos['Valor'].abs()
     
-    ordem_meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+    ordem_meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
     df_evol = df_gastos.groupby(['Mes_Pagamento', 'Macro_Grupo'])['Valor_Abs'].sum().reset_index()
     df_evol['Mes_Pagamento'] = pd.Categorical(df_evol['Mes_Pagamento'], categories=ordem_meses, ordered=True)
     
@@ -119,7 +86,6 @@ def plot_macro_evolution(df):
                   title="Evolução de Gastos: Essencial vs Lifestyle", barmode='stack')
 
 def plot_relief_projection(df):
-    # Filtramos transações com padrão '1/10'
     df_parcelas = df[df['Parcela'].astype(str).str.contains('/')].copy()
     if df_parcelas.empty: return None
 
@@ -127,13 +93,14 @@ def plot_relief_projection(df):
     ordem_meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
                     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
     
-    # Pegamos o mês atual para iniciar a projeção
-    mes_atual_nome = datetime.datetime.now().strftime('%B').capitalize() # Pega o mês real do sistema
-    # Ajuste manual caso o locale esteja em inglês
-    map_meses = {'February': 'Fevereiro', 'March': 'Março'} # Adicione outros se necessário
+    mes_atual_nome = datetime.datetime.now().strftime('%B').capitalize()
+    map_meses = {'February': 'Fevereiro', 'March': 'Março', 'April': 'Abril', 'May': 'Maio', 
+                 'June': 'Junho', 'July': 'Julho', 'August': 'Agosto', 'September': 'Setembro', 
+                 'October': 'Outubro', 'November': 'Novembro', 'December': 'Dezembro', 'January': 'Janeiro'}
     mes_atual_nome = map_meses.get(mes_atual_nome, 'Fevereiro')
     
-    idx_atual = ordem_meses.index(mes_atual_nome)
+    try: idx_atual = ordem_meses.index(mes_atual_nome)
+    except: idx_atual = 0
 
     for _, row in df_parcelas.iterrows():
         try:
@@ -151,20 +118,15 @@ def plot_relief_projection(df):
     fig.update_layout(yaxis_title="R$ Comprometido")
     return fig
 
-
 def plot_bank_treemap(df_mes):
-    # Correção: .sum() vem antes do .abs()
-    # Primeiro somamos os valores negativos, depois tornamos o total positivo
     df_banco = df_mes[df_mes['Valor'] < 0].groupby('Banco')['Valor'].sum().abs().reset_index()
-    
     return px.treemap(df_banco, path=['Banco'], values='Valor', 
                       title="Concentração de Gastos por Instituição",
                       color='Valor', color_continuous_scale='Reds')
 
-
 # --- MONTANDO O DASHBOARD ---
 def main():
-    st.title("💲 Minhas finanças 💲")
+    st.title("Controle Financeiro")
     
     with st.spinner("Sincronizando com Notion..."):
         df = process_financial_logic(fetch_notion_data())
@@ -176,34 +138,57 @@ def main():
     tab1, tab2, tab3 = st.tabs(["📊 Visão Mensal", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"])
 
     with tab1:
-        print(f"📡 API do Notion retornou {len(df)} registros brutos.")
+        st.caption(f"📡 API do Notion retornou {len(df)} registros brutos.")
         meses = df['Mes_Pagamento'].unique().tolist()
-        mes_sel = st.selectbox("Escolha o mês:", meses)
+        try: mes_sel = st.selectbox("Escolha o mês:", meses, index=meses.index("Janeiro") if "Janeiro" in meses else 0)
+        except: mes_sel = st.selectbox("Escolha o mês:", meses)
+        
         df_mes = df[df['Mes_Pagamento'] == mes_sel]
         
         c1, c2 = st.columns(2)
         with c1:
+            # Filtra investimentos e pagamentos de cartão para não sujar o cálculo de consumo
             entradas = df_mes[(df_mes['Valor'] > 0) & (df_mes['Tipo'] != "Pagamento de cartão")]['Valor'].sum()
-            saidas = df_mes[(df_mes['Valor'] < 0) & (~df_mes['Tipo'].isin(["Pagamento de cartão", "Investimentos"]))]['Valor'].abs().sum()
+            saidas = df_mes[(df_mes['Valor'] < 0) & 
+                            (~df_mes['Tipo'].astype(str).str.contains("Investiment", case=False)) & 
+                            (df_mes['Tipo'] != "Pagamento de cartão")]['Valor'].abs().sum()
+            
             taxa = ( (entradas - saidas) / entradas * 100 ) if entradas > 0 else 0
             
-            fig = px.pie(names=['Poupado', 'Gasto'], values=[max(0, entradas-saidas), saidas], hole=0.6, title=f"Saúde Financeira: {mes_sel}")
+            fig = px.pie(names=['Poupado (Investido + Caixa)', 'Gasto (Consumo)'], 
+                         values=[max(0, entradas-saidas), saidas], 
+                         hole=0.6, title=f"Saúde Financeira: {mes_sel}")
             fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
             st.plotly_chart(fig, width='stretch')
         
         with c2:
-            st.subheader("Investimentos do Mês")
-            st.dataframe(df_mes[df_mes['Tipo'] == "Investimentos"][['Transação', 'Valor', 'Banco']], hide_index=True)
+            st.subheader(f"Carteira de Investimentos: {mes_sel}")
+            
+            # 1. Filtro Flexível (pega 'Investimento', 'Investimentos', etc)
+            df_invest = df_mes[df_mes['Tipo'].astype(str).str.contains("Investiment", case=False, na=False)]
+            
+            if not df_invest.empty:
+                # 2. Cálculo do Saldo Líquido (Aportes [negativos] + Resgates [positivos])
+                saldo_liquido = df_invest['Valor'].sum()
+                
+                # Exibe o KPI de quanto você realmente guardou (ou sacou) líquido no mês
+                label_kpi = "Aplicação Líquida (Dinheiro Novo)" if saldo_liquido < 0 else "Resgate Líquido (Retirada)"
+                st.metric(label=label_kpi, value=f"R$ {abs(saldo_liquido):,.2f}")
+                
+                # Mostra a tabela detalhada
+                st.dataframe(df_invest[['Transação', 'Valor', 'Banco']], hide_index=True)
+            else:
+                st.info("Nenhuma movimentação de investimento neste mês.")
 
     with tab2:
-        # Colocamos o Treemap e o Raio-X lado a lado
         c1, c2 = st.columns(2)
-        with c1:
-            st.plotly_chart(plot_macro_evolution(df), width='stretch')
-        with c2:
-            st.plotly_chart(plot_bank_treemap(df_mes), width='stretch') # Passa o df do mês selecionado
+        with c1: st.plotly_chart(plot_macro_evolution(df), width='stretch')
+        with c2: st.plotly_chart(plot_bank_treemap(df_mes), width='stretch')
         
-        st.plotly_chart(px.sunburst(df[df['Valor']<0], path=['Banco', 'Tipo'], values='Valor', title="Raio-X Banco > Categoria"), width='stretch')
+        # Sunburst com filtro correto de valores negativos
+        df_sun = df[(df['Valor'] < 0) & (df['Tipo'] != "Pagamento de cartão")].copy()
+        df_sun['Valor_Abs'] = df_sun['Valor'].abs()
+        st.plotly_chart(px.sunburst(df_sun, path=['Banco', 'Tipo'], values='Valor_Abs', title="Raio-X Banco > Categoria"), width='stretch')
 
     with tab3:
         st.header("🔮 Futuro das Parcelas")
@@ -213,6 +198,6 @@ def main():
             st.info("Este gráfico mostra como seu custo fixo cai à medida que as parcelas terminam.")
         else:
             st.write("Nenhuma parcela detectada no Notion.")
-            
+
 if __name__ == "__main__":
     main()
