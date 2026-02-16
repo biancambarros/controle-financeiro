@@ -76,10 +76,49 @@ def plot_macro_evolution(df):
     return px.bar(df_evol.sort_values('Mes_Pagamento'), x='Mes_Pagamento', y='Valor_Abs', color='Macro_Grupo', 
                   title="Evolução de Gastos: Essencial vs Lifestyle", barmode='stack')
 
+def plot_relief_projection(df):
+    # Filtramos transações com padrão '1/10'
+    df_parcelas = df[df['Parcela'].astype(str).str.contains('/')].copy()
+    if df_parcelas.empty: return None
+
+    projections = []
+    ordem_meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+    
+    # Pegamos o mês atual para iniciar a projeção
+    mes_atual_nome = datetime.datetime.now().strftime('%B').capitalize() # Pega o mês real do sistema
+    # Ajuste manual caso o locale esteja em inglês
+    map_meses = {'February': 'Fevereiro', 'March': 'Março'} # Adicione outros se necessário
+    mes_atual_nome = map_meses.get(mes_atual_nome, 'Fevereiro')
+    
+    idx_atual = ordem_meses.index(mes_atual_nome)
+
+    for _, row in df_parcelas.iterrows():
+        try:
+            atual, total = map(int, row['Parcela'].split('/'))
+            restantes = total - atual
+            for i in range(restantes + 1):
+                idx_futuro = (idx_atual + i) % 12
+                projections.append({'Mes': ordem_meses[idx_futuro], 'Valor': abs(row['Valor'])})
+        except: continue
+
+    df_proj = pd.DataFrame(projections).groupby('Mes')['Valor'].sum().reindex(ordem_meses).reset_index().dropna()
+    
+    fig = px.line(df_proj, x='Mes', y='Valor', title="Previsão de Gastos Parcelados (Escada de Alívio)",
+                  markers=True, line_shape='hv', color_discrete_sequence=['#EF553B'])
+    fig.update_layout(yaxis_title="R$ Comprometido")
+    return fig
+
+
+def plot_bank_treemap(df_mes):
+    df_banco = df_mes[df_mes['Valor'] < 0].groupby('Banco')['Valor'].abs().sum().reset_index()
+    return px.treemap(df_banco, path=['Banco'], values='Valor', 
+                      title="Concentração de Gastos por Instituição",
+                      color='Valor', color_continuous_scale='Reds')
 # --- APP PRINCIPAL ---
 
 def main():
-    st.title("💰 Sistema de Gestão Financeira - Bianca")
+    st.title("💲 Minhas finanças 💲")
     
     with st.spinner("Sincronizando com Notion..."):
         df = process_financial_logic(fetch_notion_data())
