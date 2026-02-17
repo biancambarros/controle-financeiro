@@ -181,17 +181,28 @@ def main():
         st.caption(f"Há {len(df)} transações processadas.")
         meses = df['Mes_Pagamento'].unique().tolist()
         
-        # Seleção de Mês com tratamento de erro caso a lista mude
+        # 1. Descobrimos qual é o mês atual do sistema (Ex: 2 = Fevereiro)
+        mes_atual_num = datetime.datetime.now().month
+        
+        # 2. Mapeamos para o nome exato que você usa no Notion
+        map_meses_pt = {
+            1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',
+            5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto',
+            9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
+        }
+        mes_atual_nome = map_meses_pt[mes_atual_num]
+
+        # 3. Tentamos selecionar o mês atual. 
+        # Se ele ainda não existir nos dados (ex: virou o mês mas não tem gasto ainda), 
+        # pegamos o último da lista (index 0 ou -1 dependendo da sua ordenação)
         try: 
-            index_padrao = meses.index("Fevereiro") if "Fevereiro" in meses else 0
-        except: 
-            index_padrao = 0
+            index_padrao = meses.index(mes_atual_nome)
+        except ValueError: 
+            index_padrao = 0 # Fallback de segurança
             
         mes_sel = st.selectbox("Escolha o mês:", meses, index=index_padrao)
-        
+                
         df_mes = df[df['Mes_Pagamento'] == mes_sel].copy() # .copy() evita warnings do Pandas
-        
-        # AQUI NÃO PRECISA ORDENAR AINDA, apenas filtrar
         
         c1, c2 = st.columns(2)
         with c1:
@@ -230,7 +241,7 @@ def main():
                 label_kpi = "Aplicação Líquida" if saldo_liquido < 0 else "Resgate Líquido"
                 st.metric(label=label_kpi, value=f"R$ {abs(saldo_liquido):,.2f}")
                 
-                df_invest_display = df_invest[['Data', 'Transação', 'Valor', 'Banco']].copy()
+                df_invest_display = df_invest[['Data', 'Transação', 'Valor', 'Tipo']].copy()
                 
                 # Ordenamos por Data ENQUANTO ainda é objeto de data (cronológico)
                 df_invest_display = df_invest_display.sort_values(by=['Data', 'Valor'], na_position='first')
@@ -250,30 +261,29 @@ def main():
 
             
             # --- AUDITORIA DE GASTOS ---
-            with st.expander("🕵️‍♀️ Auditoria: Detalhe dos Gastos"):
-                st.write(f"Total calculado: **R$ {saidas:,.2f}**")
-                
-                # 1. Filtramos
-                df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].copy()
-                
-                # CORREÇÃO: Ordenamos por Data cronológica PRIMEIRO
-                df_auditoria = df_auditoria.sort_values(by=['Data', 'Valor'], na_position='first')
-                
-                # 2. Convertemos para string (Texto) DEPOIS da ordenação
-                df_auditoria['Data'] = df_auditoria['Data'].dt.strftime('%d/%m/%Y')
-                
-                # 3. Exibimos
-                st.dataframe(
-                    df_auditoria, 
-                    hide_index=True,
-                    use_container_width=True,
-                    column_config={
-                        "Valor": st.column_config.NumberColumn(
-                            "Valor",
-                            format="R$ %.2f"
-                        )
-                    }
-                )
+            st.subheader(f"Auditoria de gastos")
+            st.write(f"Total calculado: **R$ {saidas:,.2f}**")
+            # 1. Filtramos
+            df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].copy()
+            
+            # CORREÇÃO: Ordenamos por Data cronológica PRIMEIRO
+            df_auditoria = df_auditoria.sort_values(by=['Data', 'Valor'], na_position='first')
+            
+            # 2. Convertemos para string (Texto) DEPOIS da ordenação
+            df_auditoria['Data'] = df_auditoria['Data'].dt.strftime('%d/%m/%Y')
+            
+            # 3. Exibimos
+            st.dataframe(
+                df_auditoria, 
+                hide_index=True,
+                use_container_width=True,
+                column_config={
+                    "Valor": st.column_config.NumberColumn(
+                        "Valor",
+                        format="R$ %.2f"
+                    )
+                }
+            )
 
 
     with tab2:
