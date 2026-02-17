@@ -278,13 +278,13 @@ def main():
 
     with tab2:
         c1, c2 = st.columns(2)
-        with c1: st.plotly_chart(plot_macro_evolution(df), width='stretch')
-
-        with c2:
+        
         # Sunburst com filtro correto de valores negativos
         df_sun = df[(df['Valor'] < 0) & (df['Tipo'] != "Pagamento de cartão")].copy()
         df_sun['Valor_Abs'] = df_sun['Valor'].abs()
-        st.plotly_chart(px.sunburst(df_sun, path=['Banco', 'Tipo'], values='Valor_Abs', title="Raio-X Banco > Categoria"), width='stretch')
+        
+        with c1: st.plotly_chart(plot_macro_evolution(df), width='stretch')
+        with c2: st.plotly_chart(px.sunburst(df_sun, path=['Banco', 'Tipo'], values='Valor_Abs', title="Raio-X Banco > Categoria"), width='stretch')
 
     with tab3:
         st.header("🔮 Futuro das Parcelas")
