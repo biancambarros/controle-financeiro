@@ -177,7 +177,7 @@ def main():
         st.warning("Nenhum dado encontrado no Notion.")
         return
 
-    tab1, tab2, tab3 = st.tabs(["📊 Visão Mensal", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"])
+    tab1, tab2, tab3 = st.tabs(["📊 Saúde financeira", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"])
 
     with tab1:
         st.caption(f"Há {len(df)} transações processadas.")
