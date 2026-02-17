@@ -68,8 +68,6 @@ def process_financial_logic(results):
     for page in results:
         p = page["properties"]
         try:
-            # --- MUDANÇA CRUCIAL AQUI ---
-            # Agora lemos a propriedade "formula" -> "string"
             # O Notion envia algo como: {'type': 'formula', 'formula': {'type': 'string', 'string': '15/02/2026'}}
             data_str = p["Data"]["formula"]["string"] if p["Data"]["formula"] else None
 
@@ -192,6 +190,7 @@ def main():
         mes_sel = st.selectbox("Escolha o mês:", meses, index=index_padrao)
         
         df_mes = df[df['Mes_Pagamento'] == mes_sel].copy() # .copy() evita warnings do Pandas
+        df_mes = df_mes.sort_values(by=['Data', 'Valor'], na_position='first') #Ordena por Data e Valor
         
         c1, c2 = st.columns(2)
         with c1:
