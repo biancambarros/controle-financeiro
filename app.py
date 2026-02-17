@@ -80,8 +80,24 @@ def process_financial_logic(results):
             
     df = pd.DataFrame(rows)
     if not df.empty:
-        #df['Data'] = pd.to_datetime(df['Data'], utc=True, errors='coerce').dt.tz_localize(None)
-        df['Data'] = pd.to_datetime(df['Data'], utc=True, errors='coerce').dt.date
+        # 1. Garante que tudo seja string (texto) primeiro. 
+        # Isso evita que o Pandas se perca se vier algum objeto estranho do Notion.
+        df['Data'] = df['Data'].astype(str)
+
+        # 2. Converte para Datetime permitindo formatos mistos
+        # O Pandas vai entender tanto "2026-02-15" quanto "2026-02-15T14:30:00"
+        df['Data'] = pd.to_datetime(df['Data'], utc=True, errors='coerce')
+
+        # 3. Remove o fuso horário (UTC) para evitar confusão de -3h
+        df['Data'] = df['Data'].dt.tz_localize(None)
+        
+        # 4. O PULO DO GATO: .normalize()
+        # Isso zera as horas de quem tem hora (14:30 -> 00:00)
+        # E mantém quem já não tinha hora (00:00 -> 00:00)
+        # Resultado: A coluna fica 100% uniforme.
+        df['Data'] = df['Data'].dt.normalize()
+
+        # Ordenação
         df = df.sort_values(by=['Data', 'Mes_Pagamento'], na_position='first')
     return df
 
