@@ -225,7 +225,7 @@ def main():
             
             fig = px.pie(names=['Poupado (Investido + Sobra)', 'Gasto (Consumo Real)'], 
                          values=[max(0, entradas-saidas), saidas], 
-                         hole=0.6, title=f"Fluxo de Caixa Líquido: {mes_sel}")
+                         hole=0.6, title=f"Fluxo de Caixa Líquido")#: {mes_sel}
             fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
             st.plotly_chart(fig, width='stretch')
 
@@ -233,7 +233,7 @@ def main():
 
         with c2:
             # --- AUDITORIA DE INVESTIMENTOS ---
-            st.subheader(f"Carteira de Investimentos: {mes_sel}")
+            st.subheader(f"Carteira de Investimentos")#: {mes_sel}
             df_invest = df_mes[df_mes['Tipo'].astype(str).str.contains("Investiment", case=False, na=False)]
             
             if not df_invest.empty:
@@ -262,7 +262,9 @@ def main():
             
             # --- AUDITORIA DE GASTOS ---
             st.subheader(f"Auditoria de gastos")
-            st.write(f"Total calculado: **R$ {saidas:,.2f}**")
+            label_kpi_2 = "Total calculado:"
+            st.metric(label=label_kpi_2, value=f"R$ {saidas:,.2f}")
+            #st.write(f"Total calculado: **R$ {saidas:,.2f}**")
             # 1. Filtramos
             df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].copy()
             
