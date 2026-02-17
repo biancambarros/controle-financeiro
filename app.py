@@ -80,7 +80,8 @@ def process_financial_logic(results):
             
     df = pd.DataFrame(rows)
     if not df.empty:
-        df['Data'] = pd.to_datetime(df['Data'], utc=True, errors='coerce').dt.tz_localize(None)
+        #df['Data'] = pd.to_datetime(df['Data'], utc=True, errors='coerce').dt.tz_localize(None)
+        df['Data'] = pd.to_datetime(df['Data'], utc=True, errors='coerce').dt.date
         df = df.sort_values(by=['Data', 'Mes_Pagamento'], na_position='first')
     return df
 
