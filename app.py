@@ -7,6 +7,32 @@ import streamlit as st
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="💲 Dashboard Financeiro", layout="wide")
 
+# --- AUTENTICAÇÃO ---
+def check_password():
+    """Retorna True se o usuário inserir a senha correta."""
+    if "password_correct" not in st.session_state:
+        st.session_state.password_correct = False
+
+    if st.session_state.password_correct:
+        return True
+
+    st.text_input(
+        "🔒 Digite a senha para acessar o Dashboard Financeiro:", 
+        type="password", 
+        key="password_input", 
+        on_change=password_entered
+    )
+    return False
+
+def password_entered():
+    """Checa se a senha inserida bate com a dos Secrets."""
+    if st.session_state["password_input"] == st.secrets["SENHA_ACESSO"]:
+        st.session_state.password_correct = True
+        del st.session_state["password_input"]  # Limpa a senha da memória
+    else:
+        st.error("😕 Senha incorreta.")
+        
+
 # --- CORE: BUSCA E LIMPEZA DE DADOS ---
 def get_property_value(prop):
     if not prop: return "N/A"
@@ -242,5 +268,8 @@ def main():
         else:
             st.write("Nenhuma parcela detectada no Notion.")
 
+
 if __name__ == "__main__":
-    main()
+    if check_password():
+        main()
+        
