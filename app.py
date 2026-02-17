@@ -162,7 +162,7 @@ def plot_bank_treemap(df_mes):
     df_banco = df_mes[df_mes['Valor'] < 0].groupby('Banco')['Valor'].sum().abs().reset_index()
     return px.treemap(df_banco, path=['Banco'], values='Valor', 
                       title="Concentração de Gastos por Instituição",
-                      color='Valor', color_continuous_scale='Reds')
+                      color='Valor', color_continuous_scale='Blues')
 
 # --- MONTANDO O DASHBOARD ---
 def main():
@@ -218,6 +218,8 @@ def main():
             fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
             st.plotly_chart(fig, width='stretch')
 
+            st.plotly_chart(plot_bank_treemap(df_mes), width='stretch')
+
         with c2:
             # --- AUDITORIA DE INVESTIMENTOS ---
             st.subheader(f"Carteira de Investimentos: {mes_sel}")
@@ -230,10 +232,10 @@ def main():
                 
                 df_invest_display = df_invest[['Data', 'Transação', 'Valor', 'Banco']].copy()
                 
-                # CORREÇÃO: Ordenamos por Data ENQUANTO ainda é objeto de data (cronológico)
+                # Ordenamos por Data ENQUANTO ainda é objeto de data (cronológico)
                 df_invest_display = df_invest_display.sort_values(by=['Data', 'Valor'], na_position='first')
                 
-                # AGORA SIM: Convertemos para texto para exibição
+                # Convertemos para texto para exibição
                 df_invest_display['Data'] = df_invest_display['Data'].dt.strftime('%d/%m/%Y')
 
                 st.dataframe(
@@ -277,8 +279,8 @@ def main():
     with tab2:
         c1, c2 = st.columns(2)
         with c1: st.plotly_chart(plot_macro_evolution(df), width='stretch')
-        with c2: st.plotly_chart(plot_bank_treemap(df_mes), width='stretch')
-        
+
+        with c2:
         # Sunburst com filtro correto de valores negativos
         df_sun = df[(df['Valor'] < 0) & (df['Tipo'] != "Pagamento de cartão")].copy()
         df_sun['Valor_Abs'] = df_sun['Valor'].abs()
