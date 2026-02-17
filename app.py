@@ -139,72 +139,87 @@ def main():
     tab1, tab2, tab3 = st.tabs(["📊 Visão Mensal", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"])
 
     with tab1:
-        st.caption(f"📡 Há {len(df)} transações.")
+        st.caption(f"📡 Há {len(df)} transações processadas.")
         meses = df['Mes_Pagamento'].unique().tolist()
-        try: mes_sel = st.selectbox("Escolha o mês:", meses, index=meses.index("Fevereiro") if "Fevereiro" in meses else 0)
-        except: mes_sel = st.selectbox("Escolha o mês:", meses)
         
-        df_mes = df[df['Mes_Pagamento'] == mes_sel]
+        # Seleção de Mês com tratamento de erro caso a lista mude
+        try: 
+            index_padrao = meses.index("Fevereiro") if "Fevereiro" in meses else 0
+        except: 
+            index_padrao = 0
+            
+        mes_sel = st.selectbox("Escolha o mês:", meses, index=index_padrao)
+        
+        df_mes = df[df['Mes_Pagamento'] == mes_sel].copy() # .copy() evita warnings do Pandas
         
         c1, c2 = st.columns(2)
         with c1:
-            # --- LÓGICA DE FILTRAGEM REFORÇADA ---
-            # 1. Definição do que é ENTRADA REAL (Salário, Benefícios, Cashback)
-            # Ignora estornos de cartão ou transferências internas positivas
+            # --- LÓGICA DE FILTRAGEM ---
             filtro_entradas = (
                 (df_mes['Valor'] > 0) & 
-                (df_mes['Tipo'] != "Pagamento de cartão")# &
-                #(~df_mes['Transação'].str.contains("Resgate", case=False, na=False)) # Ignora resgate de investimento como receita
+                (df_mes['Tipo'] != "Pagamento de cartão")
             )
             
-            # 2. Definição do que é SAÍDA DE CONSUMO (Gasto Real)
-            # AQUI ESTÁ O SEGREDO: Excluímos tudo que é movimentação interna
             filtro_saidas = (
                 (df_mes['Valor'] < 0) & 
-                # Não é investimento
                 (~df_mes['Tipo'].astype(str).str.contains("Investiment", case=False)) & 
-                # Não é pagamento de fatura (Categoria)
-                (df_mes['Tipo'] != "Pagamento de cartão") #&
-                # Não é pagamento de fatura (Texto da Transação - previne erros de categorização)
-                #(~df_mes['Transação'].str.contains("Fatura|Pagamento|Cartão", case=False, na=False)) #&
-                # Não é transferência para si mesma (Favorecido)
-                #(df_mes['Favorecido'] != "Bianca Matos de Barros")
+                (df_mes['Tipo'] != "Pagamento de cartão")
             )
             
             entradas = df_mes[filtro_entradas]['Valor'].sum()
             saidas = df_mes[filtro_saidas]['Valor'].abs().sum()
             
-            # Cálculo da Taxa
-            taxa = ( (entradas - saidas) / entradas * 100 ) if entradas > 0 else 0
+            taxa = ((entradas - saidas) / entradas * 100) if entradas > 0 else 0
             
-            # Gráfico
             fig = px.pie(names=['Poupado (Investido + Sobra)', 'Gasto (Consumo Real)'], 
                          values=[max(0, entradas-saidas), saidas], 
                          hole=0.6, title=f"Fluxo de Caixa Líquido: {mes_sel}")
             fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
             st.plotly_chart(fig, width='stretch')
 
-            # --- FERRAMENTA DE AUDITORIA (NOVO) ---
-            # Isso vai te mostrar EXATAMENTE o que está sendo somado.
-            with st.expander("🕵️‍♀️ Auditoria: O que compõe este Gasto?"):
-                st.write(f"Total calculado: R$ {saidas:,.2f}")
-                # Mostra as transações consideradas no cálculo
+            # --- CORREÇÃO DA AUDITORIA ---
+            with st.expander("🕵️‍♀️ Auditoria: Detalhe dos Gastos"):
+                st.write(f"Total calculado: **R$ {saidas:,.2f}**")
+                
                 df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Valor')
-                st.dataframe(df_auditoria, hide_index=True)
+                
+                # AQUI ESTÁ A MÁGICA: column_config formata sem alterar os dados subjacentes
+                st.dataframe(
+                    df_auditoria, 
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config={
+                        "Data": st.column_config.DateColumn(
+                            "Data",
+                            format="DD/MM/YYYY", # Força o formato brasileiro
+                        ),
+                        "Valor": st.column_config.NumberColumn(
+                            "Valor",
+                            format="R$ %.2f" # Adiciona o R$ automaticamente
+                        )
+                    }
+                )
 
         with c2:
             st.subheader(f"Carteira de Investimentos: {mes_sel}")
-            
-            # Filtro de Investimentos
             df_invest = df_mes[df_mes['Tipo'].astype(str).str.contains("Investiment", case=False, na=False)]
             
             if not df_invest.empty:
                 saldo_liquido = df_invest['Valor'].sum()
                 label_kpi = "Aplicação Líquida" if saldo_liquido < 0 else "Resgate Líquido"
                 st.metric(label=label_kpi, value=f"R$ {abs(saldo_liquido):,.2f}")
-                st.dataframe(df_invest[['Transação', 'Valor', 'Banco']], hide_index=True)
+                
+                st.dataframe(
+                    df_invest[['Data', 'Transação', 'Valor', 'Banco']], 
+                    hide_index=True,
+                    column_config={
+                        "Data": st.column_config.DateColumn("Data", format="DD/MM/YYYY"),
+                        "Valor": st.column_config.NumberColumn("Valor", format="R$ %.2f")
+                    }
+                )
             else:
-                st.info("Sem movimentação de investimentos.")
+                st.info("Sem movimentação de investimentos neste mês.")
+
     with tab2:
         c1, c2 = st.columns(2)
         with c1: st.plotly_chart(plot_macro_evolution(df), width='stretch')
