@@ -1,4 +1,4 @@
-import datetime
+seimport datetime
 import pandas as pd
 import plotly.express as px
 import requests
@@ -177,13 +177,18 @@ def main():
             fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
             st.plotly_chart(fig, width='stretch')
 
+
             # --- CORREÇÃO DA AUDITORIA ---
             with st.expander("🕵️‍♀️ Auditoria: Detalhe dos Gastos"):
                 st.write(f"Total calculado: **R$ {saidas:,.2f}**")
                 
-                df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Valor')
+                # Criamos uma cópia para não afetar o DataFrame original
+                df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Valor').copy()
                 
-                # AQUI ESTÁ A MÁGICA: column_config formata sem alterar os dados subjacentes
+                # 🔥 O FIX ESTÁ AQUI: Convertemos datetime64 para python object date
+                # Isso remove a hora (00:00:00) e deixa apenas o dia, que o Streamlit ama.
+                df_auditoria['Data'] = df_auditoria['Data'].dt.date
+                
                 st.dataframe(
                     df_auditoria, 
                     hide_index=True,
@@ -191,11 +196,11 @@ def main():
                     column_config={
                         "Data": st.column_config.DateColumn(
                             "Data",
-                            format="DD/MM/YYYY", # Força o formato brasileiro
+                            format="DD/MM/YYYY", # Agora vai funcionar para todos
                         ),
                         "Valor": st.column_config.NumberColumn(
                             "Valor",
-                            format="R$ %.2f" # Adiciona o R$ automaticamente
+                            format="R$ %.2f"
                         )
                     }
                 )
