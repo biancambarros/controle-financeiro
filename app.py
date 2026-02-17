@@ -40,6 +40,8 @@ def get_property_value(prop):
     if p_type == "select": return prop["select"]["name"] if prop["select"] else "N/A"
     elif p_type == "people": return prop["people"][0]["name"] if prop["people"] else "N/A"
     elif p_type == "rich_text": return prop["rich_text"][0]["plain_text"] if prop["rich_text"] else "N/A"
+    elif p_type == "formula": # Adicionado suporte para formulas de texto
+        return prop["formula"]["string"] if prop["formula"]["type"] == "string" else "N/A"
     return "N/A"
 
 @st.cache_data(ttl=600)
@@ -66,8 +68,13 @@ def process_financial_logic(results):
     for page in results:
         p = page["properties"]
         try:
+            # --- MUDANÇA CRUCIAL AQUI ---
+            # Agora lemos a propriedade "formula" -> "string"
+            # O Notion envia algo como: {'type': 'formula', 'formula': {'type': 'string', 'string': '15/02/2026'}}
+            data_str = p["Data"]["formula"]["string"] if p["Data"]["formula"] else None
+
             rows.append({
-                "Data": p["Data"]["date"]["start"] if p["Data"]["date"] else None,
+                "Data": data_str, # Pegamos a string crua "DD/MM/YYYY"
                 "Banco": get_property_value(p["Banco"]),
                 "Transação": p["Transação"]["title"][0]["plain_text"] if p["Transação"]["title"] else "Sem Título",
                 "Valor": (p["Valor"]["number"] or 0) * -1,
@@ -76,28 +83,19 @@ def process_financial_logic(results):
                 "Favorecido": get_property_value(p["Favorecido"]),
                 "Parcela": get_property_value(p["Parcela"])
             })
-        except: continue
+        except Exception as e:
+            # Dica: Se quiser debugar, descomente a linha abaixo para ver o erro no log
+            # print(f"Erro ao processar linha: {e}") 
+            continue
             
     df = pd.DataFrame(rows)
     if not df.empty:
-        # 1. Garante que tudo seja string (texto) primeiro. 
-        # Isso evita que o Pandas se perca se vier algum objeto estranho do Notion.
-        df['Data'] = df['Data'].astype(str)
+        # 1. Conversão inteligente da data
+        # Como sua fórmula já entrega "DD/MM/YYYY", usamos dayfirst=True
+        # Isso converte a string para um objeto Timestamp limpo (sem horas quebradas)
+        df['Data'] = pd.to_datetime(df['Data'], dayfirst=True, errors='coerce')
 
-        # 2. Converte para Datetime permitindo formatos mistos
-        # O Pandas vai entender tanto "2026-02-15" quanto "2026-02-15T14:30:00"
-        df['Data'] = pd.to_datetime(df['Data'], utc=True, errors='coerce')
-
-        # 3. Remove o fuso horário (UTC) para evitar confusão de -3h
-        df['Data'] = df['Data'].dt.tz_localize(None)
-        
-        # 4. O PULO DO GATO: .normalize()
-        # Isso zera as horas de quem tem hora (14:30 -> 00:00)
-        # E mantém quem já não tinha hora (00:00 -> 00:00)
-        # Resultado: A coluna fica 100% uniforme.
-        df['Data'] = df['Data'].dt.normalize()
-
-        # Ordenação
+        # 2. Ordenação
         df = df.sort_values(by=['Data', 'Mes_Pagamento'], na_position='first')
     return df
 
@@ -220,19 +218,41 @@ def main():
             fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
             st.plotly_chart(fig, width='stretch')
 
+        with c2:
+            # --- AUDITORIA DE INVESTIMENTOS ---
+            st.subheader(f"Carteira de Investimentos: {mes_sel}")
+            df_invest = df_mes[df_mes['Tipo'].astype(str).str.contains("Investiment", case=False, na=False)]
+            
+            if not df_invest.empty:
+                saldo_liquido = df_invest['Valor'].sum()
+                label_kpi = "Aplicação Líquida" if saldo_liquido < 0 else "Resgate Líquido"
+                st.metric(label=label_kpi, value=f"R$ {abs(saldo_liquido):,.2f}")
+                
+                df_invest_display = df_invest[['Data', 'Transação', 'Valor', 'Banco']].copy()
+                df_invest_display['Data'] = df_invest_display['Data'].dt.strftime('%d/%m/%Y')
 
-            # --- CORREÇÃO DA AUDITORIA ---
+                st.dataframe(
+                    df_invest_display, 
+                    hide_index=True,
+                    column_config={
+                        "Valor": st.column_config.NumberColumn("Valor", format="R$ %.2f")
+                    }
+                )
+            else:
+                st.info("Sem movimentação de investimentos neste mês.")
+
+            
+            # --- AUDITORIA DE GASTOS ---
             with st.expander("🕵️‍♀️ Auditoria: Detalhe dos Gastos"):
                 st.write(f"Total calculado: **R$ {saidas:,.2f}**")
                 
                 # 1. Filtramos e copiamos
                 df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Valor').copy()
                 
-                # 2. A MÁGICA: Convertemos para string (Texto) no formato BR
-                # Assim o Streamlit exibe EXATAMENTE o que está escrito, sem tentar formatar
-                #df_auditoria['Data'] = df_auditoria['Data'].dt.strftime('%d/%m/%Y')
+                # 2. Convertemos para string (Texto) no formato BR para garantir exibição
+                df_auditoria['Data'] = df_auditoria['Data'].dt.strftime('%d/%m/%Y')
                 
-                # 3. Exibimos (Note que removi o column_config da Data, pois agora é texto)
+                # 3. Exibimos
                 st.dataframe(
                     df_auditoria, 
                     hide_index=True,
@@ -245,26 +265,6 @@ def main():
                     }
                 )
 
-
-        with c2:
-            st.subheader(f"Carteira de Investimentos: {mes_sel}")
-            df_invest = df_mes[df_mes['Tipo'].astype(str).str.contains("Investiment", case=False, na=False)]
-            
-            if not df_invest.empty:
-                saldo_liquido = df_invest['Valor'].sum()
-                label_kpi = "Aplicação Líquida" if saldo_liquido < 0 else "Resgate Líquido"
-                st.metric(label=label_kpi, value=f"R$ {abs(saldo_liquido):,.2f}")
-                
-                st.dataframe(
-                    df_invest[['Data', 'Transação', 'Valor', 'Banco']], 
-                    hide_index=True,
-                    column_config={
-                        "Data": st.column_config.DateColumn("Data", format="DD/MM/YYYY"),
-                        "Valor": st.column_config.NumberColumn("Valor", format="R$ %.2f")
-                    }
-                )
-            else:
-                st.info("Sem movimentação de investimentos neste mês.")
 
     with tab2:
         c1, c2 = st.columns(2)
@@ -289,4 +289,3 @@ def main():
 if __name__ == "__main__":
     if check_password():
         main()
-        
