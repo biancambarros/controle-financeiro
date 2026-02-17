@@ -229,6 +229,7 @@ def main():
                 
                 df_invest_display = df_invest[['Data', 'Transação', 'Valor', 'Banco']].copy()
                 df_invest_display['Data'] = df_invest_display['Data'].dt.strftime('%d/%m/%Y')
+                df_invest_display = df_invest_display.sort_values(by=['Data', 'Valor'], na_position='first')
 
                 st.dataframe(
                     df_invest_display, 
@@ -250,6 +251,7 @@ def main():
                 
                 # 2. Convertemos para string (Texto) no formato BR para garantir exibição
                 df_auditoria['Data'] = df_auditoria['Data'].dt.strftime('%d/%m/%Y')
+                df_auditoria = df_auditoria.sort_values(by=['Data', 'Valor'], na_position='first')
                 
                 # 3. Exibimos
                 st.dataframe(
