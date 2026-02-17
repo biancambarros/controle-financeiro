@@ -221,7 +221,7 @@ def main():
             st.plotly_chart(fig, width='stretch')
 
 
-                        # --- CORREÇÃO DA AUDITORIA ---
+            # --- CORREÇÃO DA AUDITORIA ---
             with st.expander("🕵️‍♀️ Auditoria: Detalhe dos Gastos"):
                 st.write(f"Total calculado: **R$ {saidas:,.2f}**")
                 
@@ -230,7 +230,7 @@ def main():
                 
                 # 2. A MÁGICA: Convertemos para string (Texto) no formato BR
                 # Assim o Streamlit exibe EXATAMENTE o que está escrito, sem tentar formatar
-                df_auditoria['Data'] = df_auditoria['Data'].dt.strftime('%d/%m/%Y')
+                #df_auditoria['Data'] = df_auditoria['Data'].dt.strftime('%d/%m/%Y')
                 
                 # 3. Exibimos (Note que removi o column_config da Data, pois agora é texto)
                 st.dataframe(
