@@ -139,7 +139,7 @@ def main():
     tab1, tab2, tab3 = st.tabs(["📊 Visão Mensal", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"])
 
     with tab1:
-        st.caption(f"📡 Há {len(df)} transações processadas.")
+        st.caption(f"Há {len(df)} transações processadas.")
         meses = df['Mes_Pagamento'].unique().tolist()
         
         # Seleção de Mês com tratamento de erro caso a lista mude
@@ -178,32 +178,30 @@ def main():
             st.plotly_chart(fig, width='stretch')
 
 
-            # --- CORREÇÃO DA AUDITORIA ---
+                        # --- CORREÇÃO DA AUDITORIA ---
             with st.expander("🕵️‍♀️ Auditoria: Detalhe dos Gastos"):
                 st.write(f"Total calculado: **R$ {saidas:,.2f}**")
                 
-                # Criamos uma cópia para não afetar o DataFrame original
+                # 1. Filtramos e copiamos
                 df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Valor').copy()
                 
-                # 🔥 O FIX ESTÁ AQUI: Convertemos datetime64 para python object date
-                # Isso remove a hora (00:00:00) e deixa apenas o dia, que o Streamlit ama.
-                df_auditoria['Data'] = df_auditoria['Data'].dt.date
+                # 2. A MÁGICA: Convertemos para string (Texto) no formato BR
+                # Assim o Streamlit exibe EXATAMENTE o que está escrito, sem tentar formatar
+                df_auditoria['Data'] = df_auditoria['Data'].dt.strftime('%d/%m/%Y')
                 
+                # 3. Exibimos (Note que removi o column_config da Data, pois agora é texto)
                 st.dataframe(
                     df_auditoria, 
                     hide_index=True,
                     use_container_width=True,
                     column_config={
-                        "Data": st.column_config.DateColumn(
-                            "Data",
-                            format="DD/MM/YYYY", # Agora vai funcionar para todos
-                        ),
                         "Valor": st.column_config.NumberColumn(
                             "Valor",
                             format="R$ %.2f"
                         )
                     }
                 )
+
 
         with c2:
             st.subheader(f"Carteira de Investimentos: {mes_sel}")
