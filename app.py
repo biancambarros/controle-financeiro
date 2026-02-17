@@ -190,7 +190,8 @@ def main():
         mes_sel = st.selectbox("Escolha o mês:", meses, index=index_padrao)
         
         df_mes = df[df['Mes_Pagamento'] == mes_sel].copy() # .copy() evita warnings do Pandas
-        df_mes = df_mes.sort_values(by=['Data', 'Valor'], na_position='first') #Ordena por Data e Valor
+        
+        # AQUI NÃO PRECISA ORDENAR AINDA, apenas filtrar
         
         c1, c2 = st.columns(2)
         with c1:
@@ -228,8 +229,12 @@ def main():
                 st.metric(label=label_kpi, value=f"R$ {abs(saldo_liquido):,.2f}")
                 
                 df_invest_display = df_invest[['Data', 'Transação', 'Valor', 'Banco']].copy()
-                df_invest_display['Data'] = df_invest_display['Data'].dt.strftime('%d/%m/%Y')
+                
+                # CORREÇÃO: Ordenamos por Data ENQUANTO ainda é objeto de data (cronológico)
                 df_invest_display = df_invest_display.sort_values(by=['Data', 'Valor'], na_position='first')
+                
+                # AGORA SIM: Convertemos para texto para exibição
+                df_invest_display['Data'] = df_invest_display['Data'].dt.strftime('%d/%m/%Y')
 
                 st.dataframe(
                     df_invest_display, 
@@ -246,12 +251,14 @@ def main():
             with st.expander("🕵️‍♀️ Auditoria: Detalhe dos Gastos"):
                 st.write(f"Total calculado: **R$ {saidas:,.2f}**")
                 
-                # 1. Filtramos e copiamos
-                df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Valor').copy()
+                # 1. Filtramos
+                df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].copy()
                 
-                # 2. Convertemos para string (Texto) no formato BR para garantir exibição
-                df_auditoria['Data'] = df_auditoria['Data'].dt.strftime('%d/%m/%Y')
+                # CORREÇÃO: Ordenamos por Data cronológica PRIMEIRO
                 df_auditoria = df_auditoria.sort_values(by=['Data', 'Valor'], na_position='first')
+                
+                # 2. Convertemos para string (Texto) DEPOIS da ordenação
+                df_auditoria['Data'] = df_auditoria['Data'].dt.strftime('%d/%m/%Y')
                 
                 # 3. Exibimos
                 st.dataframe(
