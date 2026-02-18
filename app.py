@@ -175,7 +175,8 @@ def main():
         st.warning("Nenhum dado encontrado no Notion.")
         return
 
-    tab1, tab2, tab3 = st.tabs(["📊 Saúde financeira", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"])
+    # === [NOVA ESTRUTURA DE ABAS] ===
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Saúde financeira", "📈 Saldo Anual", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"])
 
     with tab1:
         st.caption(f"Há {len(df)} transações processadas.")
@@ -287,8 +288,35 @@ def main():
                 }
             )
 
-
     with tab2:
+        st.header("Resultado Financeiro por Mês")
+        
+        # 1. Agrupamos tudo por Mês de Pagamento (somando todos os valores, positivos e negativos)
+        # Atenção: Isso inclui salário, gastos, investimentos, tudo. É o "Saldo Final" da conta.
+        df_anual = df.groupby('Mes_Pagamento')['Valor'].sum().reset_index()
+
+        # 2. Ordenação Cronológica dos Meses
+        ordem_meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+        df_anual['Mes_Pagamento'] = pd.Categorical(df_anual['Mes_Pagamento'], categories=ordem_meses, ordered=True)
+        df_anual = df_anual.sort_values('Mes_Pagamento')
+
+        # 3. Gráfico de Barras com Cores Condicionais (Verde/Vermelho)
+        fig_anual = px.bar(
+            df_anual, 
+            x='Mes_Pagamento', 
+            y='Valor',
+            title='Saldo Líquido (Receitas - Despesas)',
+            color='Valor',
+            color_continuous_scale='RdYlGn', # Gradiente Vermelho -> Amarelo -> Verde
+            labels={'Valor': 'Saldo (R$)', 'Mes_Pagamento': 'Mês'}
+        )
+        
+        # Ajuste Fino Visual
+        fig_anual.update_layout(coloraxis_showscale=False) # Remove a barra de cores lateral
+        st.plotly_chart(fig_anual, width='stretch')
+
+    with tab3:
         c1, c2 = st.columns(2)
         
         # Sunburst com filtro correto de valores negativos
@@ -298,7 +326,7 @@ def main():
         with c1: st.plotly_chart(plot_macro_evolution(df), width='stretch')
         with c2: st.plotly_chart(px.sunburst(df_sun, path=['Banco', 'Tipo'], values='Valor_Abs', title="Raio-X Banco > Categoria"), width='stretch')
 
-    with tab3:
+    with tab4:
         st.header("🔮 Futuro das Parcelas")
         fig_proj = plot_relief_projection(df)
         if fig_proj:
