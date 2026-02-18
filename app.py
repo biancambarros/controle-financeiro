@@ -117,7 +117,6 @@ def plot_macro_evolution(df):
     fig = px.bar(df_evol.sort_values('Mes_Pagamento'), x='Mes_Pagamento', y='Valor_Abs', color='Macro_Grupo', 
                   title="Evolução de Gastos: Essencial vs Lifestyle", barmode='stack')
     
-    # --- CORREÇÃO DE FORMATAÇÃO (MOUSEOVER) ---
     fig.update_traces(hovertemplate="Mês: %{x}<br>%{fullData.name}: R$ %{y:,.2f}<extra></extra>")
     return fig
 
@@ -152,7 +151,6 @@ def plot_relief_projection(df):
     fig = px.line(df_proj, x='Mes', y='Valor', title="Previsão de Gastos Parcelados (Escada de Alívio)",
                   markers=True, line_shape='hv', color_discrete_sequence=['#EF553B'])
     
-    # --- CORREÇÃO DE FORMATAÇÃO ---
     fig.update_traces(hovertemplate="Mês: %{x}<br>Valor: R$ %{y:,.2f}<extra></extra>")
     fig.update_layout(yaxis_title="R$ Comprometido")
     return fig
@@ -162,7 +160,6 @@ def plot_bank_treemap(df_mes):
     fig = px.treemap(df_banco, path=['Banco'], values='Valor', 
                       title="Concentração de Gastos por Instituição",
                       color='Valor', color_continuous_scale='Blues')
-    # --- CORREÇÃO DE FORMATAÇÃO ---
     fig.update_traces(hovertemplate="Banco: %{label}<br>Valor: R$ %{value:,.2f}<extra></extra>")
     return fig
 
@@ -177,7 +174,7 @@ def main():
         st.warning("Nenhum dado encontrado no Notion.")
         return
 
-    # === [NOVA ESTRUTURA DE ABAS] ===
+    # === ESTRUTURA DE ABAS ===
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Saúde financeira", "📈 Saldo Anual", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"])
 
     with tab1:
@@ -241,7 +238,6 @@ def main():
             
             st.dataframe(df_auditoria, hide_index=True, use_container_width=True, column_config={"Valor": st.column_config.NumberColumn("Valor", format="R$ %.2f")})
 
-    # === [TAB 2: SALDO ANUAL (COM CORREÇÃO DE MOUSEOVER)] ===
     with tab2:
         st.header("Resultado Financeiro por Mês")
         
@@ -258,8 +254,6 @@ def main():
             labels={'Valor': 'Saldo (R$)', 'Mes_Pagamento': 'Mês'}
         )
         fig_anual.update_layout(coloraxis_showscale=False)
-        
-        # --- AQUI ESTÁ A CORREÇÃO DA FORMATAÇÃO ---
         fig_anual.update_traces(hovertemplate="Mês: %{x}<br>Saldo: R$ %{y:,.2f}<extra></extra>")
         
         st.plotly_chart(fig_anual, width='stretch')
@@ -273,9 +267,9 @@ def main():
                 fig_sun_rend = px.sunburst(
                     df_entradas_geral, path=['Banco', 'Tipo'], values='Valor', 
                     title="Origem dos Rendimentos (Anual)",
-                    color_discrete_sequence=px.colors.qualitative.Pastel
+                    color_discrete_sequence=px.colors.qualitative.Pastel,
+                    height=500 
                 )
-                # Formatação para o Sunburst
                 fig_sun_rend.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
                 st.plotly_chart(fig_sun_rend, width='stretch')
             else: st.info("Sem dados de entradas.")
@@ -288,9 +282,9 @@ def main():
                 fig_sun_gastos = px.sunburst(
                     df_saidas_geral, path=['Banco', 'Tipo'], values='Valor_Abs', 
                     title="Destino dos Gastos (Anual)",
-                    color_discrete_sequence=px.colors.qualitative.Set3
+                    color_discrete_sequence=px.colors.qualitative.Set3,
+                    height=500
                 )
-                # Formatação para o Sunburst
                 fig_sun_gastos.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
                 st.plotly_chart(fig_sun_gastos, width='stretch')
             else: st.info("Sem dados de saídas.")
@@ -300,12 +294,8 @@ def main():
         df_sun = df[(df['Valor'] < 0) & (df['Tipo'] != "Pagamento de cartão")].copy()
         df_sun['Valor_Abs'] = df_sun['Valor'].abs()
         
-        # Plot Macro Evolution já está com a correção dentro da função
         with c1: st.plotly_chart(plot_macro_evolution(df), width='stretch')
         
-        fig_sun_cat = px.sunburst(df_sun, path=['Banco', 'Tipo'], values='Valor_Abs', title="Raio-X Banco > Categoria")
-        fig_sun_cat.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
-        with c2: st.plotly_chart(fig_sun_cat, width='stretch')
 
     with tab4:
         st.header("🔮 Futuro das Parcelas")
