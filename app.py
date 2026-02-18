@@ -164,10 +164,17 @@ def main():
         st.warning("Nenhum dado encontrado no Notion.")
         return
 
-    # === ESTRUTURA DE ABAS ===
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Saúde financeira", "📈 Saldo Anual", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"])
+    # === MENU DE NAVEGAÇÃO (Substituindo Abas por Radio para persistência) ===
+    # O st.radio guarda o estado automaticamente, resolvendo o bug do 'redirect'
+    menu_options = ["📊 Saúde financeira", "📈 Saldo Anual", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"]
+    selected_tab = st.radio("Navegação", menu_options, horizontal=True, label_visibility="collapsed")
+    
+    st.divider() # Linha visual para separar o menu
 
-    with tab1:
+    # === CONTEÚDO DAS ABAS ===
+    
+    # 1. SAÚDE FINANCEIRA
+    if selected_tab == "📊 Saúde financeira":
         st.caption(f"Há {len(df)} transações processadas.")
         meses = df['Mes_Pagamento'].unique().tolist()
         
@@ -228,8 +235,8 @@ def main():
             
             st.dataframe(df_auditoria, hide_index=True, use_container_width=True, column_config={"Valor": st.column_config.NumberColumn("Valor", format="R$ %.2f")})
 
-    # === TAB 2: SALDO ANUAL (COM TOP 10 GASTOS) ===
-    with tab2:
+    # 2. SALDO ANUAL
+    elif selected_tab == "📈 Saldo Anual":
         st.header("Resultado Financeiro por Mês")
         
         df_anual = df.groupby('Mes_Pagamento')['Valor'].sum().reset_index()
@@ -259,7 +266,7 @@ def main():
                     df_entradas_geral, path=['Banco', 'Tipo'], values='Valor', 
                     title="Origem dos Rendimentos (Anual)",
                     color_discrete_sequence=px.colors.qualitative.Pastel,
-                    height=750 
+                    height=500 
                 )
                 fig_sun_rend.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
                 st.plotly_chart(fig_sun_rend, width='stretch')
@@ -274,18 +281,15 @@ def main():
                     df_saidas_geral, path=['Banco', 'Tipo'], values='Valor_Abs', 
                     title="Destino dos Gastos (Anual)",
                     color_discrete_sequence=px.colors.qualitative.Set3,
-                    height=750
+                    height=500
                 )
                 fig_sun_gastos.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
                 st.plotly_chart(fig_sun_gastos, width='stretch')
             else: st.info("Sem dados de saídas.")
 
-        # --- NOVO GRÁFICO: TOP 10 FAVORECIDOS ---
+        # --- GRÁFICO: TOP 10 FAVORECIDOS ---
         st.divider()
         
-        # 1. Preparação dos dados: Gastos Reais (excluindo pagamentos de cartão/transferências internas)
-        # Nota: Dependendo de como você categoriza, Investimentos podem aparecer aqui se não forem excluídos.
-        # Adicionei o filtro para remover investimentos do Top Gastos se desejar focar só em consumo.
         df_top_gastos = df[
             (df['Valor'] < 0) & 
             (df['Tipo'] != "Pagamento de cartão") & 
@@ -296,22 +300,18 @@ def main():
         df_top_gastos['Valor_Abs'] = df_top_gastos['Valor'].abs()
 
         if not df_top_gastos.empty:
-            # 2. Agrupamento por Favorecido
             df_favorecidos = df_top_gastos.groupby('Favorecido')['Valor_Abs'].sum().reset_index()
-            
-            # 3. Pega os Top 10 e ordena
             df_favorecidos = df_favorecidos.nlargest(10, 'Valor_Abs')
-            df_favorecidos = df_favorecidos.sort_values('Valor_Abs', ascending=True) # Ascendente para o maior ficar no topo do gráfico H
+            df_favorecidos = df_favorecidos.sort_values('Valor_Abs', ascending=True)
 
-            # 4. Gráfico de Barras Horizontais
             fig_top10 = px.bar(
                 df_favorecidos,
                 x='Valor_Abs',
                 y='Favorecido',
                 orientation='h',
-                title='Maiores gastos: Top 10 Favorecidos',
+                title='Maiores gastos: Top 10 Favorecidos (Exceto transferências próprias)',
                 color='Valor_Abs',
-                color_continuous_scale='Reds', # Escala vermelha conforme pedido
+                color_continuous_scale='Reds',
                 text='Valor_Abs'
             )
             
@@ -321,34 +321,30 @@ def main():
                 textposition='outside',
                 hovertemplate="Favorecido: %{y}<br>Total: R$ %{x:,.2f}<extra></extra>"
             )
-            
             st.plotly_chart(fig_top10, width='stretch')
         else:
             st.info("Não há dados suficientes de despesas para gerar o Top 10.")
 
 
-    # === TAB 3: RAIO-X DE CONSUMO (COM INTERATIVIDADE) ===
-    with tab3:
+    # 3. RAIO-X DE CONSUMO
+    elif selected_tab == "🏢 Raio-X de Consumo":
         st.header("Análise por grupo de categorias")
         c1, c2 = st.columns([1, 1])
         
-        # Filtra para remover pagamentos de fatura e investimentos do gráfico de gastos
         df_gastos = df[(df['Valor'] < 0) & (~df['Tipo'].astype(str).str.contains("Investiment", case=False)) & (df['Tipo'] != "Pagamento de cartão")].copy()
         df_gastos['Valor_Abs'] = df_gastos['Valor'].abs()
 
-        # Agrupamento para o Gráfico de Barras Empilhadas
         ordem_meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
                         'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
         df_evol = df_gastos.groupby(['Mes_Pagamento', 'Macro_Grupo'])['Valor_Abs'].sum().reset_index()
         df_evol['Mes_Pagamento'] = pd.Categorical(df_evol['Mes_Pagamento'], categories=ordem_meses, ordered=True)
         
-        # 🎨 CORES PERSONALIZADAS (Baseadas no seu print)
         cores_personalizadas = {
             "Despesas essenciais": "#87CEFA",    # Azul Claro
             "Despesas não essenciais": "#0068C9", # Azul Escuro
             "Impostos e taxas": "#FFB6C1",       # Rosa Claro
             "Outros": "#FF4B4B",              # Vermelho
-            "Investimentos": "#81C784"           # Verde (caso apareça)
+            "Investimentos": "#81C784"           # Verde
         }
 
         with c1:
@@ -359,26 +355,22 @@ def main():
                 color='Macro_Grupo', 
                 #title="Evolução de Gastos", 
                 barmode='stack',
-                color_discrete_map=cores_personalizadas # Aplica as cores exatas
+                color_discrete_map=cores_personalizadas
             )
             fig_macro.update_traces(hovertemplate="Mês: %{x}<br>%{fullData.name}: R$ %{y:,.2f}<extra></extra>")
             st.plotly_chart(fig_macro, width='stretch')
 
-        # --- LADO DIREITO: DRILL-DOWN INTERATIVO ---
         with c2:
             st.subheader("🔎 Detalhar grupo de categorias")
             
-            # 1. Cria o Seletor com as categorias existentes no DataFrame
             opcoes_macro = df_gastos['Macro_Grupo'].dropna().unique().tolist()
-            # Ordena alfabeticamente para facilitar
             opcoes_macro.sort()
             
+            # COMO ESTAMOS USANDO RADIO BUTTONS PARA AS ABAS, O ESTADO SE MANTÉM AQUI
             selecao_macro = st.selectbox("Selecione o grupo para ver detalhes:", opcoes_macro)
             
-            # 2. Filtra os dados com base na seleção
             df_detalhe = df_gastos[df_gastos['Macro_Grupo'] == selecao_macro].copy()
             
-            # 3. Plota o Sunburst de Detalhe (Categoria > Transação)
             if not df_detalhe.empty:
                 fig_detalhe = px.sunburst(
                     df_detalhe, 
@@ -393,7 +385,8 @@ def main():
             else:
                 st.info("Sem dados para este grupo.")
 
-    with tab4:
+    # 4. PROJEÇÕES
+    elif selected_tab == "🔮 Projeções Futuras":
         st.header("🔮 Futuro das Parcelas")
         fig_proj = plot_relief_projection(df)
         if fig_proj:
