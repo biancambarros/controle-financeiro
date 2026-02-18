@@ -98,14 +98,14 @@ def apply_macro_categories(df):
         "Moradia": "Despesas essenciais", "Reforma": "Despesas essenciais",
         "Contas residenciais": "Despesas essenciais", "Supermercado": "Despesas essenciais",
         "Transporte": "Despesas essenciais", "TV / Internet / Telefone": "Despesas essenciais",
-        "Pets": "Despesas essenciais", "Plano de Saúde": "Despesas essenciais", "Medicamentos": "Despesas essenciais",
+        "Pets": "Despesas essenciais", "Plano de Saúde": "Despesas essenciais", "Medicamentos": "Despesas essenciais", "Plano de saúde": "Despesas essenciais",
         "Nutrição e atividade física": "Despesas essenciais", "Cuidados médicos ou psicológicos": "Despesas essenciais",
         "Trabalho": "Despesas essenciais", "Educação": "Despesas essenciais", "Móveis e eletrodomésticos": "Despesas não essenciais", 
         "Decoração e jardinagem": "Despesas não essenciais", "Vestuário": "Despesas não essenciais", "Bares / Restaurantes / Delivery": "Despesas não essenciais",
         "Estética": "Despesas não essenciais", "Lazer": "Despesas não essenciais", "Presentes": "Despesas não essenciais", "Doações": "Despesas não essenciais",
         "Eletrônicos": "Despesas não essenciais", "Investimentos": "Investimentos", "Impostos e taxas": "Impostos e taxas", "Previdência": "Impostos e taxas"
     }
-    df['Macro_Grupo'] = df['Tipo'].apply(lambda x: mapeamento.get(x, 'Lifestyle'))
+    df['Macro_Grupo'] = df['Tipo'].apply(lambda x: mapeamento.get(x, 'Outros'))
     return df
 
 def plot_relief_projection(df):
