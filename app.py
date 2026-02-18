@@ -89,8 +89,9 @@ def process_financial_logic(results):
         df = df.sort_values(by=['Data', 'Mes_Pagamento'], na_position='first')
     return df
 
-# --- VISUALIZAÇÃO ---
-def plot_macro_evolution(df):
+# --- FUNÇÃO AUXILIAR: MAPEAMENTO MACRO ---
+def apply_macro_categories(df):
+    """Aplica a lógica de Macro Grupos ao DataFrame inteiro."""
     mapeamento = {
         "Remuneração": "Rendas", "Cashback": "Rendas", 
         "Rendimento": "Rendas", "Adicional": "Rendas",
@@ -105,20 +106,7 @@ def plot_macro_evolution(df):
         "Eletrônicos": "Despesas não essenciais", "Investimentos": "Investimentos", "Impostos e taxas": "Impostos e taxas", "Previdência": "Impostos e taxas"
     }
     df['Macro_Grupo'] = df['Tipo'].apply(lambda x: mapeamento.get(x, 'Lifestyle'))
-    # Filtro robusto para excluir investimentos (singular/plural)
-    df_gastos = df[(df['Valor'] < 0) & (~df['Tipo'].astype(str).str.contains("Investiment", case=False)) & (df['Tipo'] != "Pagamento de cartão")].copy()
-    df_gastos['Valor_Abs'] = df_gastos['Valor'].abs()
-    
-    ordem_meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
-                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-    df_evol = df_gastos.groupby(['Mes_Pagamento', 'Macro_Grupo'])['Valor_Abs'].sum().reset_index()
-    df_evol['Mes_Pagamento'] = pd.Categorical(df_evol['Mes_Pagamento'], categories=ordem_meses, ordered=True)
-    
-    fig = px.bar(df_evol.sort_values('Mes_Pagamento'), x='Mes_Pagamento', y='Valor_Abs', color='Macro_Grupo', 
-                  title="Evolução de Gastos: Essencial vs Lifestyle", barmode='stack')
-    
-    fig.update_traces(hovertemplate="Mês: %{x}<br>%{fullData.name}: R$ %{y:,.2f}<extra></extra>")
-    return fig
+    return df
 
 def plot_relief_projection(df):
     df_parcelas = df[df['Parcela'].astype(str).str.contains('/')].copy()
@@ -168,7 +156,9 @@ def main():
     st.title("Controle Financeiro")
     
     with st.spinner("Sincronizando com Notion..."):
-        df = process_financial_logic(fetch_notion_data())
+        df_raw = process_financial_logic(fetch_notion_data())
+        # Aplicamos as categorias macro logo no início para usar em tudo
+        df = apply_macro_categories(df_raw)
 
     if df.empty:
         st.warning("Nenhum dado encontrado no Notion.")
@@ -268,7 +258,7 @@ def main():
                     df_entradas_geral, path=['Banco', 'Tipo'], values='Valor', 
                     title="Origem dos Rendimentos (Anual)",
                     color_discrete_sequence=px.colors.qualitative.Pastel,
-                    height=500 
+                    height=800 
                 )
                 fig_sun_rend.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
                 st.plotly_chart(fig_sun_rend, width='stretch')
@@ -283,26 +273,84 @@ def main():
                     df_saidas_geral, path=['Banco', 'Tipo'], values='Valor_Abs', 
                     title="Destino dos Gastos (Anual)",
                     color_discrete_sequence=px.colors.qualitative.Set3,
-                    height=500
+                    height=800
                 )
                 fig_sun_gastos.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
                 st.plotly_chart(fig_sun_gastos, width='stretch')
             else: st.info("Sem dados de saídas.")
 
+    # === TAB 3: RAIO-X DE CONSUMO (COM INTERATIVIDADE) ===
     with tab3:
-        c1, c2 = st.columns(2)
-        df_sun = df[(df['Valor'] < 0) & (df['Tipo'] != "Pagamento de cartão")].copy()
-        df_sun['Valor_Abs'] = df_sun['Valor'].abs()
+        st.header("Análise Detalhada por Macro Grupo")
+        c1, c2 = st.columns([1, 1])
         
-        with c1: st.plotly_chart(plot_macro_evolution(df), width='stretch')
+        # Filtra para remover pagamentos de fatura e investimentos do gráfico de gastos
+        df_gastos = df[(df['Valor'] < 0) & (~df['Tipo'].astype(str).str.contains("Investiment", case=False)) & (df['Tipo'] != "Pagamento de cartão")].copy()
+        df_gastos['Valor_Abs'] = df_gastos['Valor'].abs()
+
+        # Agrupamento para o Gráfico de Barras Empilhadas
+        ordem_meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+        df_evol = df_gastos.groupby(['Mes_Pagamento', 'Macro_Grupo'])['Valor_Abs'].sum().reset_index()
+        df_evol['Mes_Pagamento'] = pd.Categorical(df_evol['Mes_Pagamento'], categories=ordem_meses, ordered=True)
         
+        # 🎨 CORES PERSONALIZADAS (Baseadas no seu print)
+        cores_personalizadas = {
+            "Despesas essenciais": "#87CEFA",    # Azul Claro
+            "Despesas não essenciais": "#0068C9", # Azul Escuro
+            "Impostos e taxas": "#FFB6C1",       # Rosa Claro
+            "Lifestyle": "#FF4B4B",              # Vermelho
+            "Investimentos": "#81C784"           # Verde (caso apareça)
+        }
+
+        with c1:
+            fig_macro = px.bar(
+                df_evol.sort_values('Mes_Pagamento'), 
+                x='Mes_Pagamento', 
+                y='Valor_Abs', 
+                color='Macro_Grupo', 
+                title="Evolução de Gastos: Essencial vs Lifestyle", 
+                barmode='stack',
+                color_discrete_map=cores_personalizadas # Aplica as cores exatas
+            )
+            fig_macro.update_traces(hovertemplate="Mês: %{x}<br>%{fullData.name}: R$ %{y:,.2f}<extra></extra>")
+            st.plotly_chart(fig_macro, width='stretch')
+
+        # --- LADO DIREITO: DRILL-DOWN INTERATIVO ---
+        with c2:
+            st.subheader("🔎 Detalhar Categoria")
+            
+            # 1. Cria o Seletor com as categorias existentes no DataFrame
+            opcoes_macro = df_gastos['Macro_Grupo'].dropna().unique().tolist()
+            # Ordena alfabeticamente para facilitar
+            opcoes_macro.sort()
+            
+            selecao_macro = st.selectbox("Selecione o Macro Grupo para ver detalhes:", opcoes_macro)
+            
+            # 2. Filtra os dados com base na seleção
+            df_detalhe = df_gastos[df_gastos['Macro_Grupo'] == selecao_macro].copy()
+            
+            # 3. Plota o Sunburst de Detalhe (Categoria > Transação)
+            if not df_detalhe.empty:
+                fig_detalhe = px.sunburst(
+                    df_detalhe, 
+                    path=['Tipo', 'Transação'], 
+                    values='Valor_Abs',
+                    title=f"Detalhamento: {selecao_macro}",
+                    color_discrete_sequence=px.colors.qualitative.Prism,
+                    height=500
+                )
+                fig_detalhe.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
+                st.plotly_chart(fig_detalhe, width='stretch')
+            else:
+                st.info("Sem dados para este grupo.")
 
     with tab4:
         st.header("🔮 Futuro das Parcelas")
         fig_proj = plot_relief_projection(df)
         if fig_proj:
             st.plotly_chart(fig_proj, width='stretch')
-            st.info("Este gráfico mostra como seu custo fixo cai à medida que as parcelas terminam.")
+            st.info("Este gráfico mostra como o custo fixo cai à medida que as parcelas terminam.")
         else:
             st.write("Nenhuma parcela detectada no Notion.")
 
