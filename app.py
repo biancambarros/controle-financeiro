@@ -309,7 +309,7 @@ def main():
                 x='Valor_Abs',
                 y='Favorecido',
                 orientation='h',
-                title='Onde seu dinheiro mais "foge": Top 10 Favorecidos',
+                title='Maiores gastos: Top 10 Favorecidos',
                 color='Valor_Abs',
                 color_continuous_scale='Reds', # Escala vermelha conforme pedido
                 text='Valor_Abs'
