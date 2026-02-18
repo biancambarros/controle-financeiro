@@ -40,7 +40,7 @@ def get_property_value(prop):
     if p_type == "select": return prop["select"]["name"] if prop["select"] else "N/A"
     elif p_type == "people": return prop["people"][0]["name"] if prop["people"] else "N/A"
     elif p_type == "rich_text": return prop["rich_text"][0]["plain_text"] if prop["rich_text"] else "N/A"
-    elif p_type == "formula": # Adicionado suporte para formulas de texto
+    elif p_type == "formula": 
         return prop["formula"]["string"] if prop["formula"]["type"] == "string" else "N/A"
     return "N/A"
 
@@ -68,11 +68,10 @@ def process_financial_logic(results):
     for page in results:
         p = page["properties"]
         try:
-            # O Notion envia algo como: {'type': 'formula', 'formula': {'type': 'string', 'string': '15/02/2026'}}
             data_str = p["Data"]["formula"]["string"] if p["Data"]["formula"] else None
 
             rows.append({
-                "Data": data_str, # Pegamos a string crua "DD/MM/YYYY"
+                "Data": data_str,
                 "Banco": get_property_value(p["Banco"]),
                 "Transação": p["Transação"]["title"][0]["plain_text"] if p["Transação"]["title"] else "Sem Título",
                 "Valor": (p["Valor"]["number"] or 0) * -1,
@@ -82,18 +81,11 @@ def process_financial_logic(results):
                 "Parcela": get_property_value(p["Parcela"])
             })
         except Exception as e:
-            # Dica: Se quiser debugar, descomente a linha abaixo para ver o erro no log
-            # print(f"Erro ao processar linha: {e}") 
             continue
             
     df = pd.DataFrame(rows)
     if not df.empty:
-        # 1. Conversão inteligente da data
-        # Como sua fórmula já entrega "DD/MM/YYYY", usamos dayfirst=True
-        # Isso converte a string para um objeto Timestamp limpo (sem horas quebradas)
         df['Data'] = pd.to_datetime(df['Data'], dayfirst=True, errors='coerce')
-
-        # 2. Ordenação
         df = df.sort_values(by=['Data', 'Mes_Pagamento'], na_position='first')
     return df
 
@@ -122,8 +114,12 @@ def plot_macro_evolution(df):
     df_evol = df_gastos.groupby(['Mes_Pagamento', 'Macro_Grupo'])['Valor_Abs'].sum().reset_index()
     df_evol['Mes_Pagamento'] = pd.Categorical(df_evol['Mes_Pagamento'], categories=ordem_meses, ordered=True)
     
-    return px.bar(df_evol.sort_values('Mes_Pagamento'), x='Mes_Pagamento', y='Valor_Abs', color='Macro_Grupo', 
+    fig = px.bar(df_evol.sort_values('Mes_Pagamento'), x='Mes_Pagamento', y='Valor_Abs', color='Macro_Grupo', 
                   title="Evolução de Gastos: Essencial vs Lifestyle", barmode='stack')
+    
+    # --- CORREÇÃO DE FORMATAÇÃO (MOUSEOVER) ---
+    fig.update_traces(hovertemplate="Mês: %{x}<br>%{fullData.name}: R$ %{y:,.2f}<extra></extra>")
+    return fig
 
 def plot_relief_projection(df):
     df_parcelas = df[df['Parcela'].astype(str).str.contains('/')].copy()
@@ -155,14 +151,20 @@ def plot_relief_projection(df):
     
     fig = px.line(df_proj, x='Mes', y='Valor', title="Previsão de Gastos Parcelados (Escada de Alívio)",
                   markers=True, line_shape='hv', color_discrete_sequence=['#EF553B'])
+    
+    # --- CORREÇÃO DE FORMATAÇÃO ---
+    fig.update_traces(hovertemplate="Mês: %{x}<br>Valor: R$ %{y:,.2f}<extra></extra>")
     fig.update_layout(yaxis_title="R$ Comprometido")
     return fig
 
 def plot_bank_treemap(df_mes):
     df_banco = df_mes[df_mes['Valor'] < 0].groupby('Banco')['Valor'].sum().abs().reset_index()
-    return px.treemap(df_banco, path=['Banco'], values='Valor', 
+    fig = px.treemap(df_banco, path=['Banco'], values='Valor', 
                       title="Concentração de Gastos por Instituição",
                       color='Valor', color_continuous_scale='Blues')
+    # --- CORREÇÃO DE FORMATAÇÃO ---
+    fig.update_traces(hovertemplate="Banco: %{label}<br>Valor: R$ %{value:,.2f}<extra></extra>")
+    return fig
 
 # --- MONTANDO O DASHBOARD ---
 def main():
@@ -182,10 +184,7 @@ def main():
         st.caption(f"Há {len(df)} transações processadas.")
         meses = df['Mes_Pagamento'].unique().tolist()
         
-        # 1. Descobrimos qual é o mês atual do sistema (Ex: 2 = Fevereiro)
         mes_atual_num = datetime.datetime.now().month
-        
-        # 2. Mapeamos para o nome exato que você usa no Notion
         map_meses_pt = {
             1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',
             5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto',
@@ -193,48 +192,32 @@ def main():
         }
         mes_atual_nome = map_meses_pt[mes_atual_num]
 
-        # 3. Tentamos selecionar o mês atual. 
-        # Se ele ainda não existir nos dados (ex: virou o mês mas não tem gasto ainda), 
-        # pegamos o último da lista (index 0 ou -1 dependendo da sua ordenação)
-        try: 
-            index_padrao = meses.index(mes_atual_nome)
-        except ValueError: 
-            index_padrao = 0 # Fallback de segurança
+        try: index_padrao = meses.index(mes_atual_nome)
+        except ValueError: index_padrao = 0 
             
         mes_sel = st.selectbox("Escolha o mês:", meses, index=index_padrao)
                 
-        df_mes = df[df['Mes_Pagamento'] == mes_sel].copy() # .copy() evita warnings do Pandas
+        df_mes = df[df['Mes_Pagamento'] == mes_sel].copy()
         
         c1, c2 = st.columns(2)
         with c1:
-            # --- LÓGICA DE FILTRAGEM ---
-            filtro_entradas = (
-                (df_mes['Valor'] > 0) & 
-                (df_mes['Tipo'] != "Pagamento de cartão")
-            )
-            
-            filtro_saidas = (
-                (df_mes['Valor'] < 0) & 
-                (~df_mes['Tipo'].astype(str).str.contains("Investiment", case=False)) & 
-                (df_mes['Tipo'] != "Pagamento de cartão")
-            )
+            filtro_entradas = ((df_mes['Valor'] > 0) & (df_mes['Tipo'] != "Pagamento de cartão"))
+            filtro_saidas = ((df_mes['Valor'] < 0) & (~df_mes['Tipo'].astype(str).str.contains("Investiment", case=False)) & (df_mes['Tipo'] != "Pagamento de cartão"))
             
             entradas = df_mes[filtro_entradas]['Valor'].sum()
             saidas = df_mes[filtro_saidas]['Valor'].abs().sum()
-            
             taxa = ((entradas - saidas) / entradas * 100) if entradas > 0 else 0
             
             fig = px.pie(names=['Poupado (Investido + Sobra)', 'Gasto (Consumo Real)'], 
                          values=[max(0, entradas-saidas), saidas], 
-                         hole=0.6, title=f"Fluxo de Caixa Líquido")#: {mes_sel}
+                         hole=0.6, title=f"Fluxo de Caixa Líquido")
             fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
             st.plotly_chart(fig, width='stretch')
 
             st.plotly_chart(plot_bank_treemap(df_mes), width='stretch')
 
         with c2:
-            # --- AUDITORIA DE INVESTIMENTOS ---
-            st.subheader(f"Carteira de Investimentos")#: {mes_sel}
+            st.subheader(f"Carteira de Investimentos")
             df_invest = df_mes[df_mes['Tipo'].astype(str).str.contains("Investiment", case=False, na=False)]
             
             if not df_invest.empty:
@@ -243,88 +226,86 @@ def main():
                 st.metric(label=label_kpi, value=f"R$ {abs(saldo_liquido):,.2f}")
                 
                 df_invest_display = df_invest[['Data', 'Transação', 'Valor', 'Tipo']].copy()
-                
-                # Ordenamos por Data ENQUANTO ainda é objeto de data (cronológico)
                 df_invest_display = df_invest_display.sort_values(by=['Data', 'Valor'], na_position='first')
-                
-                # Convertemos para texto para exibição
                 df_invest_display['Data'] = df_invest_display['Data'].dt.strftime('%d/%m/%Y')
 
-                st.dataframe(
-                    df_invest_display, 
-                    hide_index=True,
-                    column_config={
-                        "Valor": st.column_config.NumberColumn("Valor", format="R$ %.2f")
-                    }
-                )
+                st.dataframe(df_invest_display, hide_index=True, column_config={"Valor": st.column_config.NumberColumn("Valor", format="R$ %.2f")})
             else:
                 st.info("Sem movimentação de investimentos neste mês.")
 
-            
-            # --- AUDITORIA DE GASTOS ---
             st.subheader(f"Auditoria de gastos")
-            label_kpi_2 = "Total calculado:"
-            st.metric(label=label_kpi_2, value=f"R$ {saidas:,.2f}")
-            #st.write(f"Total calculado: **R$ {saidas:,.2f}**")
-            # 1. Filtramos
+            st.metric(label="Total calculado:", value=f"R$ {saidas:,.2f}")
             df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].copy()
-            
-            # CORREÇÃO: Ordenamos por Data cronológica PRIMEIRO
             df_auditoria = df_auditoria.sort_values(by=['Data', 'Valor'], na_position='first')
-            
-            # 2. Convertemos para string (Texto) DEPOIS da ordenação
             df_auditoria['Data'] = df_auditoria['Data'].dt.strftime('%d/%m/%Y')
             
-            # 3. Exibimos
-            st.dataframe(
-                df_auditoria, 
-                hide_index=True,
-                use_container_width=True,
-                column_config={
-                    "Valor": st.column_config.NumberColumn(
-                        "Valor",
-                        format="R$ %.2f"
-                    )
-                }
-            )
+            st.dataframe(df_auditoria, hide_index=True, use_container_width=True, column_config={"Valor": st.column_config.NumberColumn("Valor", format="R$ %.2f")})
 
+    # === [TAB 2: SALDO ANUAL (COM CORREÇÃO DE MOUSEOVER)] ===
     with tab2:
         st.header("Resultado Financeiro por Mês")
         
-        # 1. Agrupamos tudo por Mês de Pagamento (somando todos os valores, positivos e negativos)
-        # Atenção: Isso inclui salário, gastos, investimentos, tudo. É o "Saldo Final" da conta.
         df_anual = df.groupby('Mes_Pagamento')['Valor'].sum().reset_index()
-
-        # 2. Ordenação Cronológica dos Meses
-        ordem_meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
-                       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+        ordem_meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
         df_anual['Mes_Pagamento'] = pd.Categorical(df_anual['Mes_Pagamento'], categories=ordem_meses, ordered=True)
         df_anual = df_anual.sort_values('Mes_Pagamento')
 
-        # 3. Gráfico de Barras com Cores Condicionais (Verde/Vermelho)
         fig_anual = px.bar(
             df_anual, 
-            x='Mes_Pagamento', 
-            y='Valor',
+            x='Mes_Pagamento', y='Valor',
             title='Saldo Líquido (Receitas - Despesas)',
-            color='Valor',
-            color_continuous_scale='RdYlGn', # Gradiente Vermelho -> Amarelo -> Verde
+            color='Valor', color_continuous_scale='RdYlGn', 
             labels={'Valor': 'Saldo (R$)', 'Mes_Pagamento': 'Mês'}
         )
+        fig_anual.update_layout(coloraxis_showscale=False)
         
-        # Ajuste Fino Visual
-        fig_anual.update_layout(coloraxis_showscale=False) # Remove a barra de cores lateral
+        # --- AQUI ESTÁ A CORREÇÃO DA FORMATAÇÃO ---
+        fig_anual.update_traces(hovertemplate="Mês: %{x}<br>Saldo: R$ %{y:,.2f}<extra></extra>")
+        
         st.plotly_chart(fig_anual, width='stretch')
+
+        st.divider()
+
+        c1, c2 = st.columns(2)
+        with c1:
+            df_entradas_geral = df[(df['Valor'] > 0) & (df['Tipo'] != "Pagamento de cartão")].copy()
+            if not df_entradas_geral.empty:
+                fig_sun_rend = px.sunburst(
+                    df_entradas_geral, path=['Banco', 'Tipo'], values='Valor', 
+                    title="Origem dos Rendimentos (Anual)",
+                    color_discrete_sequence=px.colors.qualitative.Pastel
+                )
+                # Formatação para o Sunburst
+                fig_sun_rend.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
+                st.plotly_chart(fig_sun_rend, width='stretch')
+            else: st.info("Sem dados de entradas.")
+
+        with c2:
+            df_saidas_geral = df[(df['Valor'] < 0) & (df['Tipo'] != "Pagamento de cartão")].copy()
+            df_saidas_geral['Valor_Abs'] = df_saidas_geral['Valor'].abs()
+
+            if not df_saidas_geral.empty:
+                fig_sun_gastos = px.sunburst(
+                    df_saidas_geral, path=['Banco', 'Tipo'], values='Valor_Abs', 
+                    title="Destino dos Gastos (Anual)",
+                    color_discrete_sequence=px.colors.qualitative.Set3
+                )
+                # Formatação para o Sunburst
+                fig_sun_gastos.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
+                st.plotly_chart(fig_sun_gastos, width='stretch')
+            else: st.info("Sem dados de saídas.")
 
     with tab3:
         c1, c2 = st.columns(2)
-        
-        # Sunburst com filtro correto de valores negativos
         df_sun = df[(df['Valor'] < 0) & (df['Tipo'] != "Pagamento de cartão")].copy()
         df_sun['Valor_Abs'] = df_sun['Valor'].abs()
         
+        # Plot Macro Evolution já está com a correção dentro da função
         with c1: st.plotly_chart(plot_macro_evolution(df), width='stretch')
-        with c2: st.plotly_chart(px.sunburst(df_sun, path=['Banco', 'Tipo'], values='Valor_Abs', title="Raio-X Banco > Categoria"), width='stretch')
+        
+        fig_sun_cat = px.sunburst(df_sun, path=['Banco', 'Tipo'], values='Valor_Abs', title="Raio-X Banco > Categoria")
+        fig_sun_cat.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
+        with c2: st.plotly_chart(fig_sun_cat, width='stretch')
 
     with tab4:
         st.header("🔮 Futuro das Parcelas")
@@ -334,7 +315,6 @@ def main():
             st.info("Este gráfico mostra como seu custo fixo cai à medida que as parcelas terminam.")
         else:
             st.write("Nenhuma parcela detectada no Notion.")
-
 
 if __name__ == "__main__":
     if check_password():
