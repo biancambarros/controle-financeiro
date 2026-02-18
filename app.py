@@ -289,6 +289,7 @@ def main():
         df_top_gastos = df[
             (df['Valor'] < 0) & 
             (df['Tipo'] != "Pagamento de cartão") & 
+            (df['Favorecido'] != "Bianca Matos de Barros") & 
             (~df['Tipo'].astype(str).str.contains("Investiment", case=False))
         ].copy()
         
