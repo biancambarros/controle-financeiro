@@ -161,6 +161,83 @@ def render_metrics_and_charts(df_mes):
         else:
             st.info("Sem investimentos.")
 
+def render_annual_history(df):
+    st.header("Saldos Mensais")
+    
+    # Agrupamento e Ordenação
+    df_anual = df.groupby('Mes_Pagamento')['Valor'].sum().reset_index()
+    df_anual['Mes_Pagamento'] = pd.Categorical(df_anual['Mes_Pagamento'], categories=MONTHS_ORDER, ordered=True)
+    df_anual = df_anual.sort_values('Mes_Pagamento')
+
+    fig_bar = px.bar(
+        df_anual, x='Mes_Pagamento', y='Valor',
+        color='Valor', color_continuous_scale='RdYlGn',
+        labels={'Valor': 'Saldo (R$)', 'Mes_Pagamento': 'Mês'}
+    )
+    fig_bar.update_layout(coloraxis_showscale=False)
+    st.plotly_chart(fig_bar, use_container_width=True)
+
+    st.divider()
+    col1, col2 = st.columns(2)
+    
+    # Lógica de Sunburst consolidada
+    for col, flow_type, title, scale in zip([col1, col2], [1, -1], ["Rendimentos", "Gastos"], [px.colors.qualitative.Pastel, px.colors.qualitative.Set3]):
+        with col:
+            df_flow = df[(df['Valor'] * flow_type > 0) & (df['Tipo'] != "Pagamento de cartão")].copy()
+            if not df_flow.empty:
+                df_flow['Abs_Valor'] = df_flow['Valor'].abs()
+                fig = px.sunburst(df_flow, path=['Banco', 'Tipo'], values='Abs_Valor', 
+                                 title=f"{title} (Anual)", color_discrete_sequence=scale, height=500)
+                st.plotly_chart(fig, use_container_width=True)
+
+def render_consumption_analysis(df):
+    st.header("Análise por Grupo de Categorias")
+    
+    # Filtro de gastos (removendo investimentos e transferências)
+    df_gastos = df[(df['Valor'] < 0) & (~df['Tipo'].str.contains("Investiment", case=False)) & (df['Tipo'] != "Pagamento de cartão")].copy()
+    df_gastos['Valor_Abs'] = df_gastos['Valor'].abs()
+
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        df_evol = df_gastos.groupby(['Mes_Pagamento', 'Macro_Grupo'])['Valor_Abs'].sum().reset_index()
+        df_evol['Mes_Pagamento'] = pd.Categorical(df_evol['Mes_Pagamento'], categories=MONTHS_ORDER, ordered=True)
+        
+        fig_macro = px.bar(df_evol.sort_values('Mes_Pagamento'), x='Mes_Pagamento', y='Valor_Abs', 
+                          color='Macro_Grupo', barmode='stack', title="Evolução por Macro Grupo")
+        st.plotly_chart(fig_macro, use_container_width=True)
+
+    with col2:
+        st.subheader("🔎 Detalhar Grupo")
+        opcoes_macro = sorted(df_gastos['Macro_Grupo'].unique().tolist())
+        selecao_macro = st.selectbox("Grupo:", opcoes_macro)
+        
+        meses_disp = ["Todos"] + MONTHS_ORDER
+        selecao_mes = st.selectbox("Filtrar Mês:", meses_disp)
+        
+        df_detalhe = df_gastos[df_gastos['Macro_Grupo'] == selecao_macro]
+        if selecao_mes != "Todos":
+            df_detalhe = df_detalhe[df_detalhe['Mes_Pagamento'] == selecao_mes]
+        
+        if not df_detalhe.empty:
+            fig_sun = px.sunburst(df_detalhe, path=['Tipo', 'Transação'], values='Valor_Abs', height=500)
+            st.plotly_chart(fig_sun, use_container_width=True)
+
+def render_projections(df):
+    st.header("🔮 Projeções de Parcelamentos")
+    df_proj = get_projections(df)
+    
+    if df_proj is not None:
+        df_agrupado = df_proj.groupby('Mes')['Valor'].sum().reset_index()
+        fig_proj = px.line(df_agrupado, x='Mes', y='Valor', title="Comprometimento Mensal Futuro", markers=True)
+        st.plotly_chart(fig_proj, use_container_width=True)
+        
+        st.divider()
+        mes_foco = st.selectbox("Detalhar mês futuro:", df_proj['Mes'].unique())
+        df_foco = df_proj[df_proj['Mes'] == mes_foco].sort_values('Valor', ascending=False)
+        st.table(df_foco[['Transação', 'Banco', 'Valor', 'Parcela_Ref']])
+    else:
+        st.info("Nenhuma projeção disponível.")
 
 # --- MAIN APP ---
 def main():
@@ -182,8 +259,31 @@ def main():
         mes_sel = st.selectbox("Mês:", meses_disp, index=meses_disp.index(mes_atual_nome) if mes_atual_nome in meses_disp else 0)
         render_metrics_and_charts(df[df['Mes_Pagamento'] == mes_sel])
 
-    # ... demais abas seguem a mesma lógica de chamar funções de renderização ...
+    # ... (código anterior do main)
+    tabs = st.tabs(["📊 Saúde", "📈 Histórico", "🏢 Raio-X", "🔮 Projeções"])
 
+    with tabs[0]:
+        # Aba 1: Saúde Financeira
+        mes_atual_nome = MONTHS_ORDER[datetime.datetime.now().month - 1]
+        meses_disp = df['Mes_Pagamento'].unique().tolist()
+        # Garante que o índice exista no selectbox
+        idx_init = meses_disp.index(mes_atual_nome) if mes_atual_nome in meses_disp else 0
+        mes_sel = st.selectbox("Escolha o mês:", meses_disp, index=idx_init)
+        
+        render_metrics_and_charts(df[df['Mes_Pagamento'] == mes_sel])
+
+    with tabs[1]:
+        # Aba 2: Histórico Anual
+        render_annual_history(df)
+
+    with tabs[2]:
+        # Aba 3: Raio-X de Consumo
+        render_consumption_analysis(df)
+
+    with tabs[3]:
+        # Aba 4: Projeções Futuras
+        render_projections(df)
+        
 if __name__ == "__main__":
     if check_password():
         main()
