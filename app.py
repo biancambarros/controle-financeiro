@@ -100,6 +100,10 @@ def process_data(results):
         df['Macro_Grupo'] = df['Tipo'].map(lambda x: MACRO_CATEGORY_MAP.get(x, 'Outros'))
     return df
 
+def formata_br(valor):
+    """Converte float americano para string no padrão PT-BR."""
+    return f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
 # --- COMPONENTES VISUAIS ---
 def render_bank_treemap(df_gastos_filtrado):
     df_banco = df_gastos_filtrado.groupby('Banco')['Valor'].sum().abs().reset_index()
@@ -142,7 +146,7 @@ def render_saude(df_mes):
         # Usamos .sum() para permitir que resgates abatam aportes corretamente
         saldo_inv = df_inv['Valor'].sum()
         saldo_inv = saldo_inv * -1
-        st.subheader(f"Investimentos: R$ {saldo_inv:.,2f}")
+        st.subheader(f"Investimentos: R$ {saldo_inv:,.2f}")
         if not df_inv.empty:
             st.dataframe(df_inv[['Data', 'Transação', 'Valor']], hide_index=True)
         
@@ -157,6 +161,7 @@ def render_historico(df):
     df_anual['Mes_Pagamento'] = pd.Categorical(df_anual['Mes_Pagamento'], categories=MONTHS_ORDER, ordered=True)
     fig = px.bar(df_anual.sort_values('Mes_Pagamento'), x='Mes_Pagamento', y='Valor', color='Valor', color_continuous_scale='RdYlGn')
     fig.update_traces(hovertemplate="Mês: %{x}<br>Saldo: R$ %{y:,.2f}<extra></extra>")
+    fig.update_layout(separators=",.")
     st.plotly_chart(fig, use_container_width=True, key="hist_anual")
     
     c1, c2 = st.columns(2)
@@ -173,6 +178,7 @@ def render_historico(df):
             )
             # Formatação de 2 casas decimais para o Sunburst
             fig_ent.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
+            fig.update_layout(separators=",.")
             st.plotly_chart(fig_ent, use_container_width=True, key="sun_ent")
     
     with c2:
@@ -189,6 +195,7 @@ def render_historico(df):
             )
             # Formatação de 2 casas decimais para o Sunburst
             fig_sai.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
+            fig.update_layout(separators=",.")
             st.plotly_chart(fig_sai, use_container_width=True, key="sun_sai")
 
 def render_raiox(df):
@@ -200,7 +207,8 @@ def render_raiox(df):
         df_evol = df_gastos.groupby(['Mes_Pagamento', 'Macro_Grupo'], observed=True)['Valor_Abs'].sum().reset_index()
         df_evol['Mes_Pagamento'] = pd.Categorical(df_evol['Mes_Pagamento'], categories=MONTHS_ORDER, ordered=True)
         fig = px.bar(df_evol.sort_values('Mes_Pagamento'), x='Mes_Pagamento', y='Valor_Abs', color='Macro_Grupo', barmode='stack')
-        #fig.update_traces(textinfo="label+text", texttemplate="<b>%{label}</b><br>R$ %{value:,.2f}")
+        fig.update_traces(textinfo="label+text", texttemplate="<b>%{label}</b><br>R$ %{value:,.2f}")
+        fig.update_layout(separators=",.")
         st.plotly_chart(fig, use_container_width=True, key="bar_raiox")
     
     with col2:
@@ -214,6 +222,7 @@ def render_raiox(df):
     st.divider()
     df_fav = df_gastos[df_gastos['Favorecido'] != "N/A"].groupby('Favorecido')['Valor_Abs'].sum().nlargest(10).reset_index()
     fig_fav = px.bar(df_fav.sort_values('Valor_Abs'), x='Valor_Abs', y='Favorecido', orientation='h', title="Top 10 Favorecidos")
+    fig_fav.update_layout(separators=",.")
     st.plotly_chart(fig_fav, use_container_width=True, key="top_fav")
 
 def render_projeções_completo(df):
@@ -239,6 +248,7 @@ def render_projeções_completo(df):
     df_proj['Mes'] = pd.Categorical(df_proj['Mes'], categories=MONTHS_ORDER, ordered=True)
     
     fig_line = px.line(df_proj.groupby('Mes', observed=True)['Valor'].sum().reset_index(), x='Mes', y='Valor', title="Custo Fixo Futuro", markers=True)
+    fig_line.update_layout(separators=",.")
     st.plotly_chart(fig_line, use_container_width=True, key="line_proj")
     
     mes_sel = st.selectbox("Detalhar mês futuro:", df_proj['Mes'].unique(), key="sel_mes_proj")
