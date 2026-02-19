@@ -142,7 +142,7 @@ def render_saude(df_mes):
         # Usamos .sum() para permitir que resgates abatam aportes corretamente
         saldo_inv = df_inv['Valor'].sum()
         saldo_inv = saldo_inv * -1
-        st.subheader(f"Investimentos: R$ {saldo_inv:,.2f}")
+        st.subheader(f"Investimentos: R$ {saldo_inv:.,2f}")
         if not df_inv.empty:
             st.dataframe(df_inv[['Data', 'Transação', 'Valor']], hide_index=True)
         
