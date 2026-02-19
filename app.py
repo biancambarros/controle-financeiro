@@ -134,7 +134,18 @@ def render_saude(df_mes):
         
         fig = px.pie(names=['Sobra + Investimentos', 'Gasto'], values=[max(0, entradas-total_gastos), total_gastos], hole=0.6, height=325, title="Fluxo de Caixa Líquido")
         fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
+        fig.update_layout(
+            legend=dict(
+                orientation="v",
+                yanchor="top", 
+                y=1.0, 
+                xanchor="left", 
+                x=0.0,
+                font=dict(size=16)
+            )
+        )
         fig.update_layout(separators=",.")
+        fig.update_traces(textfont_size=16)
         st.plotly_chart(fig, use_container_width=True, key="pie_saude")
         
         # Passamos o DataFrame limpo direto para o Treemap
