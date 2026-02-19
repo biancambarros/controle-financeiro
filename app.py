@@ -123,7 +123,6 @@ def render_saude(df_mes):
         st.plotly_chart(render_bank_treemap(df_mes), use_container_width=True, key="tree_banco")
 
     with c2:
-        # Busca por "Imóveis" OU "Renda fixa" (ignora maiúsculas/minúsculas)
         df_inv = df_mes[df_mes['Tipo'].str.contains("Imóveis|Renda fixa", case=False, na=False)]
         st.subheader(f"Investimentos: R$ {df_inv['Valor'].sum():,.2f}")
         if not df_inv.empty:
@@ -139,6 +138,7 @@ def render_historico(df):
     df_anual = df.groupby('Mes_Pagamento', observed=True)['Valor'].sum().reset_index()
     df_anual['Mes_Pagamento'] = pd.Categorical(df_anual['Mes_Pagamento'], categories=MONTHS_ORDER, ordered=True)
     fig = px.bar(df_anual.sort_values('Mes_Pagamento'), x='Mes_Pagamento', y='Valor', color='Valor', color_continuous_scale='RdYlGn')
+    fig.update_traces(hovertemplate="Mês: %{x}<br>Saldo: R$ %{y:,.2f}<extra></extra>")
     st.plotly_chart(fig, use_container_width=True, key="hist_anual")
     
     c1, c2 = st.columns(2)
@@ -146,13 +146,13 @@ def render_historico(df):
         df_ent = df[(df['Valor'] > 0) & (df['Tipo'] != "Pagamento de cartão")]
         if not df_ent.empty:
             fig_ent = px.sunburst(df_ent, path=['Banco', 'Tipo'], values='Valor', title="Rendimentos (Anual)")
-            st.plotly_chart(fig_ent, use_container_width=True, key="sun_ent")
+            st.plotly_chart(fig_ent, use_container_width=True, key="sun_ent", height=800)
     with c2:
         df_sai = df[(df['Valor'] < 0) & (df['Tipo'] != "Pagamento de cartão")].copy()
         df_sai['Valor_Abs'] = df_sai['Valor'].abs()
         if not df_sai.empty:
             fig_sai = px.sunburst(df_sai, path=['Banco', 'Tipo'], values='Valor_Abs', title="Gastos (Anual)")
-            st.plotly_chart(fig_sai, use_container_width=True, key="sun_sai")
+            st.plotly_chart(fig_sai, use_container_width=True, key="sun_sai", height=800)
 
 def render_raiox(df):
     df_gastos = df[(df['Valor'] < 0) & (~df['Tipo'].str.contains("Investiment", case=False)) & (df['Tipo'] != "Pagamento de cartão")].copy()
