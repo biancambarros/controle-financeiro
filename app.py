@@ -88,6 +88,7 @@ def process_data(results):
             "Tipo": get_prop_safe(p.get("Tipo de despesa"), "select"),
             "Mes_Pagamento": get_prop_safe(p.get("Mês de pagamento"), "select"),
             "Favorecido": get_prop_safe(p.get("Favorecido"), "people"),
+            "Descrição": get_prop_safe(p.get("Descrição"), "rich_text"),
             "Parcela": get_prop_safe(p.get("Parcela"), "rich_text")
         })
     df = pd.DataFrame(rows)
