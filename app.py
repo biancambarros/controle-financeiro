@@ -4,6 +4,7 @@ import plotly.express as px
 import requests
 import streamlit as st
 
+
 # --- CONSTANTES ---
 MONTHS_ORDER = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
@@ -31,6 +32,7 @@ MACRO_CATEGORY_MAP = {
 
 st.set_page_config(page_title="💲 Dashboard Financeiro", layout="wide")
 
+
 # --- AUTENTICAÇÃO ---
 def check_password():
     if st.session_state.get("password_correct", False):
@@ -43,6 +45,7 @@ def check_password():
             st.error("😕 Senha incorreta.")
     st.text_input("🔒 Senha:", type="password", key="password_input", on_change=password_entered)
     return False
+
 
 # --- DADOS ---
 class NotionClient:
@@ -98,9 +101,16 @@ def process_data(results):
     return df
 
 # --- COMPONENTES VISUAIS ---
-
 def render_bank_treemap(df_mes):
-    df_banco = df_mes[df_mes['Valor'] < 0].groupby('Banco')['Valor'].sum().abs().reset_index()
+    # Filtro idêntico ao da auditoria: remove investimentos e pagamento de fatura
+    df_gastos_reais = df_mes[
+        (df_mes['Valor'] < 0) & 
+        (df_mes['Macro_Grupo'] != 'Investimentos') & 
+        (df_mes['Tipo'] != "Pagamento de cartão")
+    ]
+    
+    df_banco = df_gastos_reais.groupby('Banco')['Valor'].sum().abs().reset_index()
+    
     fig = px.treemap(df_banco, path=['Banco'], values='Valor', title="Gastos por Instituição", color='Valor', height=275, color_continuous_scale='Blues')
     fig.update_traces(textinfo="label+text", texttemplate="<b>%{label}</b><br>R$ %{value:,.2f}")
     fig.update_traces(textfont_size=14)
@@ -113,7 +123,11 @@ def render_saude(df_mes):
     c1, c2 = st.columns(2)
     with c1:
         entradas = df_mes[(df_mes['Valor'] > 0) & (df_mes['Tipo'] != "Pagamento de cartão")]['Valor'].sum()
-        saidas = df_mes[(df_mes['Valor'] < 0) & (~df_mes['Tipo'].str.contains("Investiment", case=False)) & (df_mes['Tipo'] != "Pagamento de cartão")]['Valor'].abs().sum()
+        
+        # Correção: usando Macro_Grupo para filtrar saídas (mais seguro que str.contains)
+        filtro_saidas_condicao = (df_mes['Valor'] < 0) & (df_mes['Macro_Grupo'] != "Investimentos") & (df_mes['Tipo'] != "Pagamento de cartão")
+        saidas = df_mes[filtro_saidas_condicao]['Valor'].abs().sum()
+        
         taxa = ((entradas - saidas) / entradas * 100) if entradas > 0 else 0
         fig = px.pie(names=['Poupado', 'Gasto'], values=[max(0, entradas-saidas), saidas], hole=0.6, height=325, title="Fluxo de Caixa Líquido")
         fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
@@ -124,14 +138,14 @@ def render_saude(df_mes):
         st.plotly_chart(render_bank_treemap(df_mes), use_container_width=True, key="tree_banco")
 
     with c2:
-        df_inv = df_mes[df_mes['Tipo'].str.contains("Imóveis|Renda fixa", case=False, na=False)]
-        st.subheader(f"Investimentos: R$ {df_inv['Valor'].sum():,.2f}")
+        # Busca Investimentos pelo Macro_Grupo, independente de se chamar Renda Fixa ou Imóveis
+        df_inv = df_mes[df_mes['Macro_Grupo'] == "Investimentos"]
+        st.subheader(f"Investimentos: R$ {df_inv['Valor'].abs().sum():,.2f}")
         if not df_inv.empty:
             st.dataframe(df_inv[['Data', 'Transação', 'Valor']], hide_index=True)
         
-        filtro_saidas = ((df_mes['Valor'] < 0) & (~df_mes['Tipo'].str.contains("Investiment", case=False)) & (df_mes['Tipo'] != "Pagamento de cartão"))
-        st.subheader(f"Gastos: R$ {df_mes[filtro_saidas]['Valor'].abs().sum():,.2f}")
-        df_audit = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Data')
+        st.subheader(f"Gastos: R$ {saidas:,.2f}")
+        df_audit = df_mes[filtro_saidas_condicao][['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Data')
         df_audit['Data'] = df_audit['Data'].dt.strftime('%d/%m/%Y')
         st.dataframe(df_audit, use_container_width=True, hide_index=True)
 
@@ -226,6 +240,7 @@ def render_projeções_completo(df):
     
     mes_sel = st.selectbox("Detalhar mês futuro:", df_proj['Mes'].unique(), key="sel_mes_proj")
     st.dataframe(df_proj[df_proj['Mes'] == mes_sel].sort_values('Valor', ascending=False), hide_index=True, use_container_width=True)
+
 
 # --- MAIN ---
 def main():
