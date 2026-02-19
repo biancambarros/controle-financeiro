@@ -153,12 +153,17 @@ def render_saude(df_mes):
 
     with c2:
         # === INVESTIMENTOS (Corrigido) ===
-        df_inv = df_mes[df_mes['Macro_Grupo'] == "Investimentos"]
-        # Usamos .sum() para permitir que resgates abatam aportes corretamente
+        # Adicione o .copy() para evitar avisos do Pandas ao modificar a coluna
+        df_inv = df_mes[df_mes['Macro_Grupo'] == "Investimentos"].copy() 
+        
         saldo_inv = df_inv['Valor'].sum()
         saldo_inv = saldo_inv * -1
         st.subheader(f"Investimentos: R$ {saldo_inv:,.2f}")
+        
         if not df_inv.empty:
+            # Formata a data igual à tabela de gastos
+            df_inv['Data'] = df_inv['Data'].dt.strftime('%d/%m/%Y')
+            
             st.dataframe(df_inv[['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Data'), hide_index=True)
         
         # === GASTOS ===
