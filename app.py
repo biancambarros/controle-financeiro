@@ -159,7 +159,7 @@ def render_saude(df_mes):
         saldo_inv = saldo_inv * -1
         st.subheader(f"Investimentos: R$ {saldo_inv:,.2f}")
         if not df_inv.empty:
-            st.dataframe(df_inv[['Data', 'Transação', 'Valor']], hide_index=True)
+            st.dataframe(df_inv[['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Data'), hide_index=True)
         
         # === GASTOS ===
         st.subheader(f"Gastos: R$ {total_gastos:,.2f}")
