@@ -149,7 +149,7 @@ def render_historico(df):
             # Adicionada a coluna 'Transação' ao path
             fig_ent = px.sunburst(
                 df_ent, 
-                path=['Banco', 'Tipo', 'Descrição'], 
+                path=['Tipo', 'Descrição'], 
                 values='Valor', 
                 title="Rendimentos (Anual)",
                 height=800
@@ -165,7 +165,7 @@ def render_historico(df):
             # Adicionada a coluna 'Descrição' ao path
             fig_sai = px.sunburst(
                 df_sai, 
-                path=['Banco', 'Tipo', 'Descrição'], 
+                path=['Tipo', 'Descrição'], 
                 values='Valor_Abs', 
                 title="Gastos (Anual)",
                 height=800
