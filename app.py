@@ -171,6 +171,7 @@ def render_annual_history(df):
 
     fig_bar = px.bar(
         df_anual, x='Mes_Pagamento', y='Valor',
+        height="500",
         color='Valor', color_continuous_scale='RdYlGn',
         labels={'Valor': 'Saldo (R$)', 'Mes_Pagamento': 'Mês'}
     )
@@ -258,9 +259,6 @@ def main():
         meses_disp = df['Mes_Pagamento'].unique().tolist()
         mes_sel = st.selectbox("Mês:", meses_disp, index=meses_disp.index(mes_atual_nome) if mes_atual_nome in meses_disp else 0)
         render_metrics_and_charts(df[df['Mes_Pagamento'] == mes_sel])
-
-    # ... (código anterior do main)
-    tabs = st.tabs(["📊 Saúde", "📈 Histórico", "🏢 Raio-X", "🔮 Projeções"])
 
     with tabs[0]:
         # Aba 1: Saúde Financeira
