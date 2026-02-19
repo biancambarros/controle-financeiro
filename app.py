@@ -108,7 +108,9 @@ def apply_macro_categories(df):
     df['Macro_Grupo'] = df['Tipo'].apply(lambda x: mapeamento.get(x, 'Outros'))
     return df
 
-def plot_relief_projection(df):
+# --- NOVA LÓGICA DE PROJEÇÃO (AGORA RETORNA DADOS DETALHADOS) ---
+def calculate_future_installments(df):
+    """Gera um DataFrame com todas as parcelas futuras projetadas."""
     df_parcelas = df[df['Parcela'].astype(str).str.contains('/')].copy()
     if df_parcelas.empty: return None
 
@@ -129,19 +131,30 @@ def plot_relief_projection(df):
         try:
             atual, total = map(int, row['Parcela'].split('/'))
             restantes = total - atual
+            valor_parcela = abs(row['Valor'])
+            
+            # Projetamos o valor para os meses seguintes
             for i in range(restantes + 1):
                 idx_futuro = (idx_atual + i) % 12
-                projections.append({'Mes': ordem_meses[idx_futuro], 'Valor': abs(row['Valor'])})
+                mes_proj = ordem_meses[idx_futuro]
+                
+                # Adicionamos mais detalhes aqui para o Drill-Down
+                projections.append({
+                    'Mes': mes_proj,
+                    'Valor': valor_parcela,
+                    'Transação': row['Transação'],
+                    'Banco': row['Banco'],
+                    'Parcela_Ref': f"{atual + i}/{total}" # Ex: vira "2/10", "3/10" nas projeções
+                })
         except: continue
 
-    df_proj = pd.DataFrame(projections).groupby('Mes')['Valor'].sum().reindex(ordem_meses).reset_index().dropna()
+    if not projections: return None
     
-    fig = px.line(df_proj, x='Mes', y='Valor', title="Previsão de Gastos Parcelados (Escada de Alívio)",
-                  markers=True, line_shape='hv', color_discrete_sequence=['#EF553B'])
+    df_proj = pd.DataFrame(projections)
     
-    fig.update_traces(hovertemplate="Mês: %{x}<br>Valor: R$ %{y:,.2f}<extra></extra>")
-    fig.update_layout(yaxis_title="R$ Comprometido")
-    return fig
+    # Ordenação Categórica para garantir Jan -> Dez correto nos gráficos
+    df_proj['Mes'] = pd.Categorical(df_proj['Mes'], categories=ordem_meses, ordered=True)
+    return df_proj
 
 def plot_bank_treemap(df_mes):
     df_banco = df_mes[df_mes['Valor'] < 0].groupby('Banco')['Valor'].sum().abs().reset_index()
@@ -157,22 +170,17 @@ def main():
     
     with st.spinner("Sincronizando com Notion..."):
         df_raw = process_financial_logic(fetch_notion_data())
-        # Aplicamos as categorias macro logo no início para usar em tudo
         df = apply_macro_categories(df_raw)
 
     if df.empty:
         st.warning("Nenhum dado encontrado no Notion.")
         return
 
-    # === MENU DE NAVEGAÇÃO (Substituindo Abas por Radio para persistência) ===
-    # O st.radio guarda o estado automaticamente, resolvendo o bug do 'redirect'
+    # === MENU DE NAVEGAÇÃO ===
     menu_options = ["📊 Saúde financeira", "📈 Saldo Anual", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"]
     selected_tab = st.radio("Navegação", menu_options, horizontal=True, label_visibility="collapsed")
-    
-    st.divider() # Linha visual para separar o menu
+    st.divider()
 
-    # === CONTEÚDO DAS ABAS ===
-    
     # 1. SAÚDE FINANCEIRA
     if selected_tab == "📊 Saúde financeira":
         st.caption(f"Há {len(df)} transações processadas.")
@@ -287,7 +295,6 @@ def main():
                 st.plotly_chart(fig_sun_gastos, width='stretch')
             else: st.info("Sem dados de saídas.")
 
-        # --- GRÁFICO: TOP 10 FAVORECIDOS ---
         st.divider()
         
         df_top_gastos = df[
@@ -306,25 +313,19 @@ def main():
 
             fig_top10 = px.bar(
                 df_favorecidos,
-                x='Valor_Abs',
-                y='Favorecido',
-                orientation='h',
+                x='Valor_Abs', y='Favorecido', orientation='h',
                 title='Maiores gastos: Top 10 Favorecidos (Exceto transferências próprias)',
-                color='Valor_Abs',
-                color_continuous_scale='Reds',
-                text='Valor_Abs'
+                color='Valor_Abs', color_continuous_scale='Reds', text='Valor_Abs'
             )
             
             fig_top10.update_layout(coloraxis_showscale=True)
             fig_top10.update_traces(
-                texttemplate='R$ %{x:,.2f}', 
-                textposition='outside',
+                texttemplate='R$ %{x:,.2f}', textposition='outside',
                 hovertemplate="Favorecido: %{y}<br>Total: R$ %{x:,.2f}<extra></extra>"
             )
             st.plotly_chart(fig_top10, width='stretch')
         else:
             st.info("Não há dados suficientes de despesas para gerar o Top 10.")
-
 
     # 3. RAIO-X DE CONSUMO
     elif selected_tab == "🏢 Raio-X de Consumo":
@@ -340,42 +341,34 @@ def main():
         df_evol['Mes_Pagamento'] = pd.Categorical(df_evol['Mes_Pagamento'], categories=ordem_meses, ordered=True)
         
         cores_personalizadas = {
-            "Despesas essenciais": "#87CEFA",    # Azul Claro
-            "Despesas não essenciais": "#0068C9", # Azul Escuro
-            "Impostos e taxas": "#FFB6C1",       # Rosa Claro
-            "Outros": "#FF4B4B",              # Vermelho
-            "Investimentos": "#81C784"           # Verde
+            "Despesas essenciais": "#87CEFA",    
+            "Despesas não essenciais": "#0068C9", 
+            "Impostos e taxas": "#FFB6C1",       
+            "Outros": "#FF4B4B",              
+            "Investimentos": "#81C784"           
         }
 
         with c1:
             fig_macro = px.bar(
                 df_evol.sort_values('Mes_Pagamento'), 
-                x='Mes_Pagamento', 
-                y='Valor_Abs', 
-                color='Macro_Grupo', 
-                #title="Evolução de Gastos", 
-                barmode='stack',
-                color_discrete_map=cores_personalizadas
+                x='Mes_Pagamento', y='Valor_Abs', color='Macro_Grupo', 
+                barmode='stack', color_discrete_map=cores_personalizadas
             )
             fig_macro.update_traces(hovertemplate="Mês: %{x}<br>%{fullData.name}: R$ %{y:,.2f}<extra></extra>")
             st.plotly_chart(fig_macro, width='stretch')
 
         with c2:
             st.subheader("🔎 Detalhar grupo de categorias")
-            
             opcoes_macro = df_gastos['Macro_Grupo'].dropna().unique().tolist()
             opcoes_macro.sort()
             
-            # COMO ESTAMOS USANDO RADIO BUTTONS PARA AS ABAS, O ESTADO SE MANTÉM AQUI
             selecao_macro = st.selectbox("Selecione o grupo para ver detalhes:", opcoes_macro)
             
             df_detalhe = df_gastos[df_gastos['Macro_Grupo'] == selecao_macro].copy()
             
             if not df_detalhe.empty:
                 fig_detalhe = px.sunburst(
-                    df_detalhe, 
-                    path=['Tipo', 'Transação'], 
-                    values='Valor_Abs',
+                    df_detalhe, path=['Tipo', 'Transação'], values='Valor_Abs',
                     title=f"Detalhamento: {selecao_macro}",
                     color_discrete_sequence=px.colors.qualitative.Prism,
                     height=600
@@ -385,15 +378,66 @@ def main():
             else:
                 st.info("Sem dados para este grupo.")
 
-    # 4. PROJEÇÕES
+    # 4. PROJEÇÕES (ATUALIZADA)
     elif selected_tab == "🔮 Projeções Futuras":
         st.header("🔮 Futuro das Parcelas")
-        fig_proj = plot_relief_projection(df)
-        if fig_proj:
+        
+        # 1. Calculamos o DataFrame detalhado das projeções
+        df_proj_detalhado = calculate_future_installments(df)
+        
+        if df_proj_detalhado is not None and not df_proj_detalhado.empty:
+            # 2. Visão Macro: Gráfico de Linha (Agrupado por mês)
+            df_agrupado = df_proj_detalhado.groupby('Mes')['Valor'].sum().reset_index()
+            
+            fig_proj = px.line(
+                df_agrupado, x='Mes', y='Valor', 
+                title="Tendência de Custo Fixo (Soma das parcelas)",
+                markers=True, line_shape='hv', 
+                color_discrete_sequence=['#EF553B']
+            )
+            fig_proj.update_traces(hovertemplate="Mês: %{x}<br>Total Parcelado: R$ %{y:,.2f}<extra></extra>")
+            fig_proj.update_layout(yaxis_title="Total Comprometido (R$)")
+            
             st.plotly_chart(fig_proj, width='stretch')
-            st.info("Este gráfico mostra como o custo fixo cai à medida que as parcelas terminam.")
+            st.info("O gráfico acima mostra o alívio no fluxo de caixa conforme suas dívidas parceladas terminam.")
+            
+            st.divider()
+            
+            # 3. Visão Micro: Detalhamento por Mês Selecionado
+            st.subheader("🔎 Detalhar parcelas por mês")
+            
+            # Pega os meses disponíveis na projeção
+            meses_proj = df_proj_detalhado['Mes'].unique().tolist()
+            mes_foco = st.selectbox("Selecione um mês futuro para ver o que vai cair:", meses_proj)
+            
+            # Filtra os dados
+            df_foco = df_proj_detalhado[df_proj_detalhado['Mes'] == mes_foco].copy()
+            
+            if not df_foco.empty:
+                # Ordena do maior valor para o menor
+                df_foco = df_foco.sort_values('Valor', ascending=True)
+                
+                # Gráfico de Barras Horizontais para ver quem são os vilões do mês
+                fig_detalhe_mes = px.bar(
+                    df_foco, 
+                    x='Valor', y='Transação', 
+                    orientation='h',
+                    color='Banco', # Colore por banco para facilitar visualização
+                    title=f"Composição das parcelas em {mes_foco}",
+                    text='Valor'
+                )
+                fig_detalhe_mes.update_traces(
+                    texttemplate='R$ %{x:,.2f}', textposition='outside',
+                    hovertemplate="<b>%{y}</b><br>Banco: %{legendgroup}<br>Valor: R$ %{x:,.2f}<extra></extra>"
+                )
+                fig_detalhe_mes.update_layout(height=400 + (len(df_foco)*20)) # Ajusta altura dinâmica se tiver muitos itens
+                
+                st.plotly_chart(fig_detalhe_mes, width='stretch')
+            else:
+                st.write("Sem parcelas para este mês.")
+                
         else:
-            st.write("Nenhuma parcela detectada no Notion.")
+            st.write("Nenhuma parcela futura detectada no Notion.")
 
 if __name__ == "__main__":
     if check_password():
