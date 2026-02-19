@@ -163,6 +163,7 @@ def render_raiox(df):
         df_evol = df_gastos.groupby(['Mes_Pagamento', 'Macro_Grupo'], observed=True)['Valor_Abs'].sum().reset_index()
         df_evol['Mes_Pagamento'] = pd.Categorical(df_evol['Mes_Pagamento'], categories=MONTHS_ORDER, ordered=True)
         fig = px.bar(df_evol.sort_values('Mes_Pagamento'), x='Mes_Pagamento', y='Valor_Abs', color='Macro_Grupo', barmode='stack')
+        #fig.update_traces(textinfo="label+text", texttemplate="<b>%{label}</b><br>R$ %{value:,.2f}")
         st.plotly_chart(fig, use_container_width=True, key="bar_raiox")
     
     with col2:
@@ -217,7 +218,7 @@ def main():
         st.warning("Sem dados.")
         return
 
-    tabs = st.tabs(["📊 Saúde", "📈 Histórico", "🏢 Raio-X", "🔮 Projeções"])
+    tabs = st.tabs(["🩺 Saúde financeira", "📊 Histórico", "🕵🏻‍♂️ Raio-X do consumo", "🔮 Projeções", "🎯 Metas"])
 
     with tabs[0]:
         meses_disp = [m for m in MONTHS_ORDER if m in df['Mes_Pagamento'].unique()]
