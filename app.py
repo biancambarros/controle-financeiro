@@ -130,11 +130,43 @@ def render_saude(df_mes):
     total_gastos = df_gastos_reais['Valor'].abs().sum()
 
     with c1:
+        # 1. Entradas reais (excluindo pagamentos de cartão para não duplicar)
         entradas = df_mes[(df_mes['Valor'] > 0) & (~df_mes['Tipo'].astype(str).str.contains("Pagamento de cartão", case=False, na=False))]['Valor'].sum()
-        taxa = ((entradas - total_gastos) / entradas * 100) if entradas > 0 else 0
         
-        fig = px.pie(names=['Sobra + Investimentos', 'Gasto'], values=[max(0, entradas-total_gastos), total_gastos], hole=0.6, height=325, title="Fluxo de Caixa Líquido")
+        # 2. Total Investido (pegamos apenas as saídas do grupo Investimentos)
+        total_investido = df_mes[(df_mes['Macro_Grupo'] == "Investimentos") & (df_mes['Valor'] < 0)]['Valor'].abs().sum()
+        
+        # 3. Sobra Livre (O que entrou - o que consumiu - o que investiu)
+        sobra_livre = entradas - total_gastos - total_investido
+        
+        # 4. Taxa de Poupança (tudo que não foi Consumo / Entradas)
+        valor_poupado = sobra_livre + total_investido
+        taxa = (valor_poupado / entradas * 100) if entradas > 0 else 0
+
+        # 1. Definimos as categorias e valores em variáveis para ficar mais limpo
+        categorias_pizza = ['Sobra na Conta', 'Investido', 'Gasto']
+        valores_pizza = [max(0, sobra_livre), total_investido, total_gastos]
+        
+        # 2. Criamos o mapa de cores (tons sóbrios)
+        mapa_de_cores = {
+            'Sobra na Conta': '#7C9D96',  # Verde Sálvia
+            'Investido': '#4A6FA5',       # Azul Muted/Marinho
+            'Gasto': '#C06C84'            # Rosa Escuro / Rose Sóbrio
+        }
+
+        # 3. Criamos o gráfico passando o mapeamento
+        fig = px.pie(
+            names=categorias_pizza, 
+            values=valores_pizza, 
+            color=categorias_pizza,               # Dizemos ao Plotly para colorir baseado nos nomes
+            color_discrete_map=mapa_de_cores,     # Passamos o nosso dicionário de cores
+            hole=0.6, 
+            height=325, 
+            title="<b>Fluxo de Caixa Líquido</b>"
+        )
+        
         fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
+        
         fig.update_layout(
             legend=dict(
                 orientation="v",
@@ -143,14 +175,14 @@ def render_saude(df_mes):
                 xanchor="left", 
                 x=0.0,
                 font=dict(size=16)
-            )
+            ),
+            title_font=dict(size=24, family="sans-serif"), 
+            title_x=0,
+            separators=",."
         )
-        fig.update_layout(title_font=dict(size=24, family="sans-serif"), title_x=0)
-        fig.update_layout(separators=",.")
         fig.update_traces(textfont_size=16)
-        st.plotly_chart(fig, use_container_width=True, key="pie_saude")
         
-        # Passamos o DataFrame limpo direto para o Treemap
+        st.plotly_chart(fig, use_container_width=True, key="pie_saude")
         st.plotly_chart(render_bank_treemap(df_gastos_reais), use_container_width=True, key="tree_banco")
 
     with c2:
