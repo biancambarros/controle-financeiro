@@ -101,51 +101,53 @@ def process_data(results):
     return df
 
 # --- COMPONENTES VISUAIS ---
-def render_bank_treemap(df_mes):
-    # Filtro idêntico ao da auditoria: remove investimentos e pagamento de fatura
-    df_gastos_reais = df_mes[
-        (df_mes['Valor'] < 0) & 
-        (df_mes['Macro_Grupo'] != 'Investimentos') & 
-        (df_mes['Tipo'] != "Pagamento de cartão")
-    ]
-    
-    df_banco = df_gastos_reais.groupby('Banco')['Valor'].sum().abs().reset_index()
+def render_bank_treemap(df_gastos_filtrado):
+    # O DataFrame já chega limpo aqui! Sem refazer filtros.
+    df_banco = df_gastos_filtrado.groupby('Banco')['Valor'].sum().abs().reset_index()
     
     fig = px.treemap(df_banco, path=['Banco'], values='Valor', title="Gastos por Instituição", color='Valor', height=275, color_continuous_scale='Blues')
-    fig.update_traces(textinfo="label+text", texttemplate="<b>%{label}</b><br>R$ %{value:,.2f}")
-    fig.update_traces(textfont_size=14)
-    fig.update_layout(legend=dict(font=dict(size=16)))
-    fig.update_layout(title={'font': {'size': 24}})
+    fig.update_traces(textinfo="label+text", texttemplate="<b>%{label}</b><br>R$ %{value:,.2f}", textfont_size=14)
     fig.update_layout(coloraxis_showscale=False, margin=dict(t=50, l=10, r=10, b=10))
     return fig
 
 def render_saude(df_mes):
     c1, c2 = st.columns(2)
+    
+    # === FONTE ÚNICA DE VERDADE ===
+    # Calculamos os gastos reais apenas UMA vez para todo o painel
+    filtro_saidas = (
+        (df_mes['Valor'] < 0) & 
+        (df_mes['Macro_Grupo'] != "Investimentos") & 
+        (~df_mes['Tipo'].astype(str).str.contains("Pagamento de cartão", case=False, na=False))
+    )
+    df_gastos_reais = df_mes[filtro_saidas].copy()
+    
+    # O total matemático exato que deve bater em todos os lugares
+    total_gastos = df_gastos_reais['Valor'].abs().sum()
+
     with c1:
-        entradas = df_mes[(df_mes['Valor'] > 0) & (df_mes['Tipo'] != "Pagamento de cartão")]['Valor'].sum()
+        entradas = df_mes[(df_mes['Valor'] > 0) & (~df_mes['Tipo'].astype(str).str.contains("Pagamento de cartão", case=False, na=False))]['Valor'].sum()
+        taxa = ((entradas - total_gastos) / entradas * 100) if entradas > 0 else 0
         
-        # Correção: usando Macro_Grupo para filtrar saídas (mais seguro que str.contains)
-        filtro_saidas_condicao = (df_mes['Valor'] < 0) & (df_mes['Macro_Grupo'] != "Investimentos") & (df_mes['Tipo'] != "Pagamento de cartão")
-        saidas = df_mes[filtro_saidas_condicao]['Valor'].abs().sum()
-        
-        taxa = ((entradas - saidas) / entradas * 100) if entradas > 0 else 0
-        fig = px.pie(names=['Poupado', 'Gasto'], values=[max(0, entradas-saidas), saidas], hole=0.6, height=325, title="Fluxo de Caixa Líquido")
+        fig = px.pie(names=['Poupado', 'Gasto'], values=[max(0, entradas-total_gastos), total_gastos], hole=0.6, height=325, title="Fluxo de Caixa Líquido")
         fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
-        fig.update_traces(textfont_size=16)
-        fig.update_layout(legend=dict(font=dict(size=16), orientation="v", yanchor="middle", y=0.5, xanchor="left", x=-0.2))
-        fig.update_layout(title={'font': {'size': 24}})
         st.plotly_chart(fig, use_container_width=True, key="pie_saude")
-        st.plotly_chart(render_bank_treemap(df_mes), use_container_width=True, key="tree_banco")
+        
+        # Passamos o DataFrame limpo direto para o Treemap
+        st.plotly_chart(render_bank_treemap(df_gastos_reais), use_container_width=True, key="tree_banco")
 
     with c2:
-        # Busca Investimentos pelo Macro_Grupo, independente de se chamar Renda Fixa ou Imóveis
+        # === INVESTIMENTOS (Corrigido) ===
         df_inv = df_mes[df_mes['Macro_Grupo'] == "Investimentos"]
-        st.subheader(f"Investimentos: R$ {df_inv['Valor'].abs().sum():,.2f}")
+        # Usamos .sum() para permitir que resgates abatam aportes corretamente
+        saldo_inv = df_inv['Valor'].sum()
+        st.subheader(f"Investimentos: R$ {saldo_inv:,.2f}")
         if not df_inv.empty:
             st.dataframe(df_inv[['Data', 'Transação', 'Valor']], hide_index=True)
         
-        st.subheader(f"Gastos: R$ {saidas:,.2f}")
-        df_audit = df_mes[filtro_saidas_condicao][['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Data')
+        # === GASTOS ===
+        st.subheader(f"Gastos: R$ {total_gastos:,.2f}")
+        df_audit = df_gastos_reais[['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Data')
         df_audit['Data'] = df_audit['Data'].dt.strftime('%d/%m/%Y')
         st.dataframe(df_audit, use_container_width=True, hide_index=True)
 
