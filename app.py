@@ -102,18 +102,17 @@ def process_data(results):
 
 # --- COMPONENTES VISUAIS ---
 def render_bank_treemap(df_gastos_filtrado):
-    # O DataFrame já chega limpo aqui! Sem refazer filtros.
     df_banco = df_gastos_filtrado.groupby('Banco')['Valor'].sum().abs().reset_index()
     
     fig = px.treemap(df_banco, path=['Banco'], values='Valor', title="Gastos por Instituição", color='Valor', height=275, color_continuous_scale='Blues')
     fig.update_traces(textinfo="label+text", texttemplate="<b>%{label}</b><br>R$ %{value:,.2f}", textfont_size=14)
     fig.update_layout(coloraxis_showscale=False, margin=dict(t=50, l=10, r=10, b=10))
+    fig.update_layout(separators=",.")
     return fig
 
 def render_saude(df_mes):
     c1, c2 = st.columns(2)
     
-    # === FONTE ÚNICA DE VERDADE ===
     # Calculamos os gastos reais apenas UMA vez para todo o painel
     filtro_saidas = (
         (df_mes['Valor'] < 0) & 
@@ -129,8 +128,9 @@ def render_saude(df_mes):
         entradas = df_mes[(df_mes['Valor'] > 0) & (~df_mes['Tipo'].astype(str).str.contains("Pagamento de cartão", case=False, na=False))]['Valor'].sum()
         taxa = ((entradas - total_gastos) / entradas * 100) if entradas > 0 else 0
         
-        fig = px.pie(names=['Poupado', 'Gasto'], values=[max(0, entradas-total_gastos), total_gastos], hole=0.6, height=325, title="Fluxo de Caixa Líquido")
+        fig = px.pie(names=['Sobra + Investimentos', 'Gasto'], values=[max(0, entradas-total_gastos), total_gastos], hole=0.6, height=325, title="Fluxo de Caixa Líquido")
         fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
+        fig.update_layout(separators=",.")
         st.plotly_chart(fig, use_container_width=True, key="pie_saude")
         
         # Passamos o DataFrame limpo direto para o Treemap
@@ -141,6 +141,7 @@ def render_saude(df_mes):
         df_inv = df_mes[df_mes['Macro_Grupo'] == "Investimentos"]
         # Usamos .sum() para permitir que resgates abatam aportes corretamente
         saldo_inv = df_inv['Valor'].sum()
+        saldo_inv = saldo_inv * -1
         st.subheader(f"Investimentos: R$ {saldo_inv:,.2f}")
         if not df_inv.empty:
             st.dataframe(df_inv[['Data', 'Transação', 'Valor']], hide_index=True)
