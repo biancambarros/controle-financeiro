@@ -72,6 +72,7 @@ def get_prop_safe(prop, p_type):
         if p_type == "rich_text": return prop["rich_text"][0]["plain_text"] if prop["rich_text"] else "N/A"
         if p_type == "formula": return prop["formula"].get("string", "N/A")
         if p_type == "title": return prop["title"][0]["plain_text"] if prop["title"] else "Sem Título"
+        if p_type == "number": return prop.get("number", 0) or 0
     except: return "N/A"
     return "N/A"
 
@@ -83,7 +84,7 @@ def process_data(results):
             "Data": get_prop_safe(p.get("Data"), "formula"),
             "Banco": get_prop_safe(p.get("Banco"), "select"),
             "Transação": get_prop_safe(p.get("Transação"), "title"),
-            "Valor": (p["Valor"].get("number", 0) or 0) * -1,
+            "Valor": get_prop_safe(p.get("Valor"), "number") * -1,
             "Tipo": get_prop_safe(p.get("Tipo de despesa"), "select"),
             "Mes_Pagamento": get_prop_safe(p.get("Mês de pagamento"), "select"),
             "Favorecido": get_prop_safe(p.get("Favorecido"), "people"),
@@ -95,8 +96,16 @@ def process_data(results):
         df['Macro_Grupo'] = df['Tipo'].map(lambda x: MACRO_CATEGORY_MAP.get(x, 'Outros'))
     return df
 
-# --- RENDERIZAÇÃO ---
-def render_metrics_and_charts(df_mes):
+# --- COMPONENTES VISUAIS ---
+
+def render_bank_treemap(df_mes):
+    df_banco = df_mes[df_mes['Valor'] < 0].groupby('Banco')['Valor'].sum().abs().reset_index()
+    fig = px.treemap(df_banco, path=['Banco'], values='Valor', title="Gastos por Instituição", color='Valor', color_continuous_scale='Blues')
+    fig.update_traces(textinfo="label+text", texttemplate="<b>%{label}</b><br>R$ %{value:,.2f}")
+    fig.update_layout(coloraxis_showscale=False, margin=dict(t=50, l=10, r=10, b=10))
+    return fig
+
+def render_saude(df_mes):
     c1, c2 = st.columns(2)
     with c1:
         entradas = df_mes[(df_mes['Valor'] > 0) & (df_mes['Tipo'] != "Pagamento de cartão")]['Valor'].sum()
@@ -104,7 +113,8 @@ def render_metrics_and_charts(df_mes):
         taxa = ((entradas - saidas) / entradas * 100) if entradas > 0 else 0
         fig = px.pie(names=['Poupado', 'Gasto'], values=[max(0, entradas-saidas), saidas], hole=0.6, title="Fluxo de Caixa Líquido")
         fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
-        st.plotly_chart(fig, use_container_width=True, key="pie_caixa") # KEY ADICIONADA
+        st.plotly_chart(fig, use_container_width=True, key="pie_saude")
+        st.plotly_chart(render_bank_treemap(df_mes), use_container_width=True, key="tree_banco")
 
     with c2:
         st.subheader("Investimentos")
@@ -112,19 +122,34 @@ def render_metrics_and_charts(df_mes):
         if not df_inv.empty:
             st.metric("Saldo Líquido", f"R$ {df_inv['Valor'].sum():,.2f}")
             st.dataframe(df_inv[['Data', 'Transação', 'Valor']], hide_index=True)
-        else: st.info("Sem investimentos.")
+        
+        st.subheader("Auditoria de Gastos")
+        filtro_saidas = ((df_mes['Valor'] < 0) & (~df_mes['Tipo'].str.contains("Investiment", case=False)) & (df_mes['Tipo'] != "Pagamento de cartão"))
+        st.metric("Total Saídas", f"R$ {df_mes[filtro_saidas]['Valor'].abs().sum():,.2f}")
+        df_audit = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Data')
+        df_audit['Data'] = df_audit['Data'].dt.strftime('%d/%m/%Y')
+        st.dataframe(df_audit, use_container_width=True, hide_index=True)
 
-def render_annual_history(df):
-    st.header("Saldos Mensais")
+def render_historico(df):
     df_anual = df.groupby('Mes_Pagamento', observed=True)['Valor'].sum().reset_index()
     df_anual['Mes_Pagamento'] = pd.Categorical(df_anual['Mes_Pagamento'], categories=MONTHS_ORDER, ordered=True)
-    df_anual = df_anual.sort_values('Mes_Pagamento')
-    fig = px.bar(df_anual, x='Mes_Pagamento', y='Valor', color='Valor', color_continuous_scale='RdYlGn')
-    fig.update_layout(coloraxis_showscale=False)
-    st.plotly_chart(fig, use_container_width=True, key="bar_anual") # KEY ADICIONADA
+    fig = px.bar(df_anual.sort_values('Mes_Pagamento'), x='Mes_Pagamento', y='Valor', color='Valor', color_continuous_scale='RdYlGn')
+    st.plotly_chart(fig, use_container_width=True, key="hist_anual")
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        df_ent = df[(df['Valor'] > 0) & (df['Tipo'] != "Pagamento de cartão")]
+        if not df_ent.empty:
+            fig_ent = px.sunburst(df_ent, path=['Banco', 'Tipo'], values='Valor', title="Rendimentos (Anual)")
+            st.plotly_chart(fig_ent, use_container_width=True, key="sun_ent")
+    with c2:
+        df_sai = df[(df['Valor'] < 0) & (df['Tipo'] != "Pagamento de cartão")].copy()
+        df_sai['Valor_Abs'] = df_sai['Valor'].abs()
+        if not df_sai.empty:
+            fig_sai = px.sunburst(df_sai, path=['Banco', 'Tipo'], values='Valor_Abs', title="Gastos (Anual)")
+            st.plotly_chart(fig_sai, use_container_width=True, key="sun_sai")
 
-def render_consumption_analysis(df):
-    st.header("Análise por Grupo")
+def render_raiox(df):
     df_gastos = df[(df['Valor'] < 0) & (~df['Tipo'].str.contains("Investiment", case=False)) & (df['Tipo'] != "Pagamento de cartão")].copy()
     df_gastos['Valor_Abs'] = df_gastos['Valor'].abs()
     
@@ -133,22 +158,48 @@ def render_consumption_analysis(df):
         df_evol = df_gastos.groupby(['Mes_Pagamento', 'Macro_Grupo'], observed=True)['Valor_Abs'].sum().reset_index()
         df_evol['Mes_Pagamento'] = pd.Categorical(df_evol['Mes_Pagamento'], categories=MONTHS_ORDER, ordered=True)
         fig = px.bar(df_evol.sort_values('Mes_Pagamento'), x='Mes_Pagamento', y='Valor_Abs', color='Macro_Grupo', barmode='stack')
-        st.plotly_chart(fig, use_container_width=True, key="bar_macro")
+        st.plotly_chart(fig, use_container_width=True, key="bar_raiox")
     
     with col2:
-        st.subheader("🔎 Detalhar")
-        sel_macro = st.selectbox("Grupo:", sorted(df_gastos['Macro_Grupo'].unique()), key="sel_macro_detalhe")
-        sel_mes = st.selectbox("Mês:", ["Todos"] + MONTHS_ORDER, key="sel_mes_detalhe")
+        sel_macro = st.selectbox("Grupo:", sorted(df_gastos['Macro_Grupo'].unique()), key="sel_macro")
+        sel_mes = st.selectbox("Mês:", ["Todos"] + MONTHS_ORDER, key="sel_mes_raiox")
         df_d = df_gastos[df_gastos['Macro_Grupo'] == sel_macro]
         if sel_mes != "Todos": df_d = df_d[df_d['Mes_Pagamento'] == sel_mes]
         if not df_d.empty:
-            fig_s = px.sunburst(df_d, path=['Tipo', 'Transação'], values='Valor_Abs', height=500)
-            st.plotly_chart(fig_s, use_container_width=True, key="sun_detalhe")
+            st.plotly_chart(px.sunburst(df_d, path=['Tipo', 'Transação'], values='Valor_Abs', height=500), use_container_width=True, key="sun_raiox")
 
-def render_projections(df):
-    st.header("🔮 Projeções")
-    # ... (lógica de projeção simplificada para brevidade)
-    st.info("Funcionalidade de projeção renderizada.")
+    st.divider()
+    df_fav = df_gastos[df_gastos['Favorecido'] != "N/A"].groupby('Favorecido')['Valor_Abs'].sum().nlargest(10).reset_index()
+    fig_fav = px.bar(df_fav.sort_values('Valor_Abs'), x='Valor_Abs', y='Favorecido', orientation='h', title="Top 10 Favorecidos")
+    st.plotly_chart(fig_fav, use_container_width=True, key="top_fav")
+
+def render_projeções_completo(df):
+    st.header("🔮 Projeções Futuras")
+    df_parcelas = df[df['Parcela'].astype(str).str.contains('/')].copy()
+    if df_parcelas.empty:
+        st.info("Nenhuma parcela detectada.")
+        return
+
+    projections = []
+    current_month_idx = datetime.datetime.now().month - 1
+    for _, row in df_parcelas.iterrows():
+        try:
+            atual, total = map(int, row['Parcela'].split('/'))
+            for i in range(total - atual + 1):
+                projections.append({
+                    'Mes': MONTHS_ORDER[(current_month_idx + i) % 12],
+                    'Valor': abs(row['Valor']), 'Transação': row['Transação'], 'Banco': row['Banco']
+                })
+        except: continue
+    
+    df_proj = pd.DataFrame(projections)
+    df_proj['Mes'] = pd.Categorical(df_proj['Mes'], categories=MONTHS_ORDER, ordered=True)
+    
+    fig_line = px.line(df_proj.groupby('Mes', observed=True)['Valor'].sum().reset_index(), x='Mes', y='Valor', title="Custo Fixo Futuro", markers=True)
+    st.plotly_chart(fig_line, use_container_width=True, key="line_proj")
+    
+    mes_sel = st.selectbox("Detalhar mês futuro:", df_proj['Mes'].unique(), key="sel_mes_proj")
+    st.dataframe(df_proj[df_proj['Mes'] == mes_sel].sort_values('Valor', ascending=False), hide_index=True, use_container_width=True)
 
 # --- MAIN ---
 def main():
@@ -158,23 +209,21 @@ def main():
         df = process_data(client.fetch_all_pages())
 
     if df.empty:
-        st.warning("Dados não encontrados.")
+        st.warning("Sem dados.")
         return
 
-    tab_titles = ["📊 Saúde", "📈 Histórico", "🏢 Raio-X", "🔮 Projeções"]
-    tabs = st.tabs(tab_titles)
+    tabs = st.tabs(["📊 Saúde", "📈 Histórico", "🏢 Raio-X", "🔮 Projeções"])
 
     with tabs[0]:
         meses_disp = [m for m in MONTHS_ORDER if m in df['Mes_Pagamento'].unique()]
         mes_atual = MONTHS_ORDER[datetime.datetime.now().month - 1]
         idx = meses_disp.index(mes_atual) if mes_atual in meses_disp else 0
-        mes_sel = st.selectbox("Escolha o mês:", meses_disp, index=idx, key="main_mes_selector")
-        render_metrics_and_charts(df[df['Mes_Pagamento'] == mes_sel])
+        mes_sel = st.selectbox("Mês:", meses_disp, index=idx, key="sel_mes_saude")
+        render_saude(df[df['Mes_Pagamento'] == mes_sel])
 
-    with tabs[1]: render_annual_history(df)
-    with tabs[2]: render_consumption_analysis(df)
-    with tabs[3]: render_projections(df)
+    with tabs[1]: render_historico(df)
+    with tabs[2]: render_raiox(df)
+    with tabs[3]: render_projeções_completo(df)
 
 if __name__ == "__main__":
-    if check_password():
-        main()
+    if check_password(): main()
