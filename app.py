@@ -148,7 +148,7 @@ def render_historico(df):
             # Adicionada a coluna 'Transação' ao path
             fig_ent = px.sunburst(
                 df_ent, 
-                path=['Banco', 'Tipo', 'Transação'], 
+                path=['Banco', 'Tipo', 'Descrição'], 
                 values='Valor', 
                 title="Rendimentos (Anual)",
                 height=800
@@ -161,10 +161,10 @@ def render_historico(df):
         df_sai = df[(df['Valor'] < 0) & (df['Tipo'] != "Pagamento de cartão")].copy()
         df_sai['Valor_Abs'] = df_sai['Valor'].abs()
         if not df_sai.empty:
-            # Adicionada a coluna 'Transação' ao path
+            # Adicionada a coluna 'Descrição' ao path
             fig_sai = px.sunburst(
                 df_sai, 
-                path=['Banco', 'Tipo', 'Transação'], 
+                path=['Banco', 'Tipo', 'Descrição'], 
                 values='Valor_Abs', 
                 title="Gastos (Anual)",
                 height=800
