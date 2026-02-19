@@ -244,8 +244,8 @@ def main():
             st.dataframe(df_auditoria, hide_index=True, use_container_width=True, column_config={"Valor": st.column_config.NumberColumn("Valor", format="R$ %.2f")})
 
     # 2. SALDO ANUAL
-    elif selected_tab == "📈 Saldo Anual":
-        st.header("Resultado Financeiro por Mês")
+    elif selected_tab == "📈 Saldo":
+        #st.header("Resultado Financeiro por Mês")
         
         df_anual = df.groupby('Mes_Pagamento')['Valor'].sum().reset_index()
         ordem_meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -255,7 +255,7 @@ def main():
         fig_anual = px.bar(
             df_anual, 
             x='Mes_Pagamento', y='Valor',
-            title='Saldo Líquido (Receitas - Despesas)',
+            title='Evolução do saldo mensal',
             color='Valor', color_continuous_scale='RdYlGn', 
             labels={'Valor': 'Saldo (R$)', 'Mes_Pagamento': 'Mês'}
         )
@@ -274,7 +274,7 @@ def main():
                     df_entradas_geral, path=['Banco', 'Tipo'], values='Valor', 
                     title="Origem dos Rendimentos (Anual)",
                     color_discrete_sequence=px.colors.qualitative.Pastel,
-                    height=500 
+                    height=650 
                 )
                 fig_sun_rend.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
                 st.plotly_chart(fig_sun_rend, width='stretch')
@@ -289,44 +289,13 @@ def main():
                     df_saidas_geral, path=['Banco', 'Tipo'], values='Valor_Abs', 
                     title="Destino dos Gastos (Anual)",
                     color_discrete_sequence=px.colors.qualitative.Set3,
-                    height=500
+                    height=650
                 )
                 fig_sun_gastos.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
                 st.plotly_chart(fig_sun_gastos, width='stretch')
             else: st.info("Sem dados de saídas.")
 
-        st.divider()
         
-        df_top_gastos = df[
-            (df['Valor'] < 0) & 
-            (df['Tipo'] != "Pagamento de cartão") & 
-            (df['Favorecido'] != "Bianca Matos de Barros") & 
-            (~df['Tipo'].astype(str).str.contains("Investiment", case=False))
-        ].copy()
-        
-        df_top_gastos['Valor_Abs'] = df_top_gastos['Valor'].abs()
-
-        if not df_top_gastos.empty:
-            df_favorecidos = df_top_gastos.groupby('Favorecido')['Valor_Abs'].sum().reset_index()
-            df_favorecidos = df_favorecidos.nlargest(10, 'Valor_Abs')
-            df_favorecidos = df_favorecidos.sort_values('Valor_Abs', ascending=True)
-
-            fig_top10 = px.bar(
-                df_favorecidos,
-                x='Valor_Abs', y='Favorecido', orientation='h',
-                title='Maiores gastos: Top 10 Favorecidos (Exceto transferências próprias)',
-                color='Valor_Abs', color_continuous_scale='Reds', text='Valor_Abs'
-            )
-            
-            fig_top10.update_layout(coloraxis_showscale=True)
-            fig_top10.update_traces(
-                texttemplate='R$ %{x:,.2f}', textposition='outside',
-                hovertemplate="Favorecido: %{y}<br>Total: R$ %{x:,.2f}<extra></extra>"
-            )
-            st.plotly_chart(fig_top10, width='stretch')
-        else:
-            st.info("Não há dados suficientes de despesas para gerar o Top 10.")
-
     # 3. RAIO-X DE CONSUMO
     elif selected_tab == "🏢 Raio-X de Consumo":
         st.header("Análise por grupo de categorias")
@@ -377,6 +346,39 @@ def main():
                 st.plotly_chart(fig_detalhe, width='stretch')
             else:
                 st.info("Sem dados para este grupo.")
+
+        st.divider()
+        
+        df_top_gastos = df[
+            (df['Valor'] < 0) & 
+            (df['Tipo'] != "Pagamento de cartão") & 
+            (df['Favorecido'] != "Bianca Matos de Barros") & 
+            (~df['Tipo'].astype(str).str.contains("Investiment", case=False))
+        ].copy()
+        
+        df_top_gastos['Valor_Abs'] = df_top_gastos['Valor'].abs()
+
+        if not df_top_gastos.empty:
+            df_favorecidos = df_top_gastos.groupby('Favorecido')['Valor_Abs'].sum().reset_index()
+            df_favorecidos = df_favorecidos.nlargest(10, 'Valor_Abs')
+            df_favorecidos = df_favorecidos.sort_values('Valor_Abs', ascending=True)
+
+            fig_top10 = px.bar(
+                df_favorecidos,
+                x='Valor_Abs', y='Favorecido', orientation='h',
+                title='Maiores gastos: Top 10 Favorecidos (Exceto transferências próprias)',
+                color='Valor_Abs', color_continuous_scale='Reds', text='Valor_Abs'
+            )
+            
+            fig_top10.update_layout(coloraxis_showscale=True)
+            fig_top10.update_traces(
+                texttemplate='R$ %{x:,.2f}', textposition='outside',
+                hovertemplate="Favorecido: %{y}<br>Total: R$ %{x:,.2f}<extra></extra>"
+            )
+            st.plotly_chart(fig_top10, width='stretch')
+        else:
+            st.info("Não há dados suficientes de despesas para gerar o Top 10.")
+
 
     # 4. PROJEÇÕES (ATUALIZADA)
     elif selected_tab == "🔮 Projeções Futuras":
