@@ -24,7 +24,7 @@ MACRO_CATEGORY_MAP = {
     "Eletrônicos": "Gastos não essenciais", "Vestuário": "Gastos não essenciais",
     "Estética": "Gastos não essenciais", "Lazer": "Gastos não essenciais",
     "Presentes": "Gastos não essenciais", "Doações": "Gastos não essenciais",
-    "Viagens": "Gastos não essenciais", "Investimentos": "Investimentos",
+    "Viagens": "Gastos não essenciais", "Imóveis": "Investimentos", "Renda fixa": "Investimentos",
     "Imposto de renda": "Impostos e taxas", "Impostos municipais": "Impostos e taxas",
     "Taxas bancárias": "Impostos e taxas"
 }
@@ -114,19 +114,19 @@ def render_saude(df_mes):
         entradas = df_mes[(df_mes['Valor'] > 0) & (df_mes['Tipo'] != "Pagamento de cartão")]['Valor'].sum()
         saidas = df_mes[(df_mes['Valor'] < 0) & (~df_mes['Tipo'].str.contains("Investiment", case=False)) & (df_mes['Tipo'] != "Pagamento de cartão")]['Valor'].abs().sum()
         taxa = ((entradas - saidas) / entradas * 100) if entradas > 0 else 0
-        fig = px.pie(names=['Poupado', 'Gasto'], values=[max(0, entradas-saidas), saidas], hole=0.6, height=450, title="Fluxo de Caixa Líquido")
+        fig = px.pie(names=['Poupado', 'Gasto'], values=[max(0, entradas-saidas), saidas], hole=0.6, height=400, title="Fluxo de Caixa Líquido")
         fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
         fig.update_traces(textfont_size=16)
-        fig.update_layout(legend=dict(font=dict(size=16)))
+        fig.update_layout(legend=dict(font=dict(size=18)))
         fig.update_layout(title={'font': {'size': 24}})
         st.plotly_chart(fig, use_container_width=True, key="pie_saude")
         st.plotly_chart(render_bank_treemap(df_mes), use_container_width=True, key="tree_banco")
 
     with c2:
-        st.subheader("Investimentos")
         df_inv = df_mes[df_mes['Tipo'].str.contains("Investiment", case=False, na=False)]
+        st.subheader("Investimentos: f'R$ {df_inv['Valor'].sum():,.2f}'")
         if not df_inv.empty:
-            st.metric("", f"R$ {df_inv['Valor'].sum():,.2f}")
+            #st.metric("", f"R$ {df_inv['Valor'].sum():,.2f}")
             st.dataframe(df_inv[['Data', 'Transação', 'Valor']], hide_index=True)
         
         st.subheader("Gastos")
