@@ -179,13 +179,35 @@ def calculate_future_installments(df):
     # Ordenação Categórica para garantir Jan -> Dez correto nos gráficos
     df_proj['Mes'] = pd.Categorical(df_proj['Mes'], categories=ordem_meses, ordered=True)
     return df_proj
-
+    
 def plot_bank_treemap(df_mes):
     df_banco = df_mes[df_mes['Valor'] < 0].groupby('Banco')['Valor'].sum().abs().reset_index()
-    fig = px.treemap(df_banco, path=['Banco'], values='Valor', 
-                      title="Concentração de Gastos por Instituição",
-                      color='Valor', color_continuous_scale='Blues')
-    fig.update_traces(hovertemplate="Banco: %{label}<br>Valor: R$ %{value:,.2f}<extra></extra>")
+    
+    fig = px.treemap(
+        df_banco, 
+        path=['Banco'], 
+        values='Valor', 
+        title="Concentração de Gastos por Instituição",
+        color='Valor', 
+        color_continuous_scale='Blues'
+    )
+    
+    # --- ATUALIZAÇÃO DE ESTÉTICA (LAYOUT) ---
+    fig.update_layout(
+        height=450, # Altura para dar respiro ao gráfico
+        title_font=dict(size=22, family="Arial, sans-serif"), # Deixa o título em destaque
+        coloraxis_showscale=False, # Remove a barra de cores lateral para um visual mais limpo
+        margin=dict(t=50, l=10, r=10, b=10) # Ajusta margens para não espremer o conteúdo
+    )
+    
+    # --- ATUALIZAÇÃO DE ESTÉTICA (TEXTOS E BLOCOS) ---
+    fig.update_traces(
+        textinfo="label+text",
+        texttemplate="<b>%{label}</b><br>R$ %{value:,.2f}", # Mostra o Banco e o Valor Formatado dentro do bloco
+        textfont=dict(size=16), # Aumenta a fonte geral dentro dos quadrados
+        hovertemplate="Banco: %{label}<br>Valor: R$ %{value:,.2f}<extra></extra>"
+    )
+    
     return fig
 
 
@@ -235,7 +257,7 @@ def main():
             saidas = df_mes[filtro_saidas]['Valor'].abs().sum()
             taxa = ((entradas - saidas) / entradas * 100) if entradas > 0 else 0
             
-            fig = px.pie(names=['Poupado (Investido + Sobra)', 'Gasto (Consumo Real)'], 
+            fig = px.pie(names=['Poupado (Investido + Sobra)', 'Gasto (Consumo Real)'], height=400,
                          values=[max(0, entradas-saidas), saidas], 
                          hole=0.6, title=f"Fluxo de Caixa Líquido")
             fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
