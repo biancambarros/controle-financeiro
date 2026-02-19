@@ -177,7 +177,7 @@ def main():
         return
 
     # === MENU DE NAVEGAÇÃO ===
-    menu_options = ["📊 Saúde financeira", "📈 Saldo Anual", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"]
+    menu_options = ["📊 Saúde financeira", "📈 Histórico anual", "🏢 Raio-X de Consumo", "🔮 Projeções Futuras"]
     selected_tab = st.radio("Navegação", menu_options, horizontal=True, label_visibility="collapsed")
     st.divider()
 
@@ -244,8 +244,8 @@ def main():
             st.dataframe(df_auditoria, hide_index=True, use_container_width=True, column_config={"Valor": st.column_config.NumberColumn("Valor", format="R$ %.2f")})
 
     # 2. SALDO ANUAL
-    elif selected_tab == "📈 Saldo":
-        #st.header("Resultado Financeiro por Mês")
+    elif selected_tab == "📈 Histórico anual":
+        #st.header("Saldos")
         
         df_anual = df.groupby('Mes_Pagamento')['Valor'].sum().reset_index()
         ordem_meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -255,7 +255,7 @@ def main():
         fig_anual = px.bar(
             df_anual, 
             x='Mes_Pagamento', y='Valor',
-            title='Evolução do saldo mensal',
+            #title='Evolução do saldo mensal',
             color='Valor', color_continuous_scale='RdYlGn', 
             labels={'Valor': 'Saldo (R$)', 'Mes_Pagamento': 'Mês'}
         )
