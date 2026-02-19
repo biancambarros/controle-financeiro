@@ -145,14 +145,33 @@ def render_historico(df):
     with c1:
         df_ent = df[(df['Valor'] > 0) & (df['Tipo'] != "Pagamento de cartão")]
         if not df_ent.empty:
-            fig_ent = px.sunburst(df_ent, path=['Banco', 'Tipo'], values='Valor', title="Rendimentos (Anual)")
-            st.plotly_chart(fig_ent, use_container_width=True, key="sun_ent", height=800)
+            # Adicionada a coluna 'Transação' ao path
+            fig_ent = px.sunburst(
+                df_ent, 
+                path=['Banco', 'Tipo', 'Transação'], 
+                values='Valor', 
+                title="Rendimentos (Anual)",
+                height=800
+            )
+            # Formatação de 2 casas decimais para o Sunburst
+            fig_ent.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
+            st.plotly_chart(fig_ent, use_container_width=True, key="sun_ent")
+    
     with c2:
         df_sai = df[(df['Valor'] < 0) & (df['Tipo'] != "Pagamento de cartão")].copy()
         df_sai['Valor_Abs'] = df_sai['Valor'].abs()
         if not df_sai.empty:
-            fig_sai = px.sunburst(df_sai, path=['Banco', 'Tipo'], values='Valor_Abs', title="Gastos (Anual)")
-            st.plotly_chart(fig_sai, use_container_width=True, key="sun_sai", height=800)
+            # Adicionada a coluna 'Transação' ao path
+            fig_sai = px.sunburst(
+                df_sai, 
+                path=['Banco', 'Tipo', 'Transação'], 
+                values='Valor_Abs', 
+                title="Gastos (Anual)",
+                height=800
+            )
+            # Formatação de 2 casas decimais para o Sunburst
+            fig_sai.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
+            st.plotly_chart(fig_sai, use_container_width=True, key="sun_sai")
 
 def render_raiox(df):
     df_gastos = df[(df['Valor'] < 0) & (~df['Tipo'].str.contains("Investiment", case=False)) & (df['Tipo'] != "Pagamento de cartão")].copy()
