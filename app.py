@@ -105,7 +105,7 @@ def render_bank_treemap(df_mes):
     # Filtro idêntico ao da auditoria: remove investimentos e pagamento de fatura
     df_gastos_reais = df_mes[
         (df_mes['Valor'] < 0) & 
-        (df_mes['Macro_Grupo'] != 'Investimentos') & 
+        #(df_mes['Macro_Grupo'] != 'Investimentos') & 
         (df_mes['Tipo'] != "Pagamento de cartão")
     ]
     
