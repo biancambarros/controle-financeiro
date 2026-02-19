@@ -96,14 +96,26 @@ def process_financial_logic(results):
 def apply_macro_categories(df):
     """Aplica a lógica de Macro Grupos ao DataFrame inteiro."""
     mapeamento = {
-        "Remuneração": "Rendas", "Cashback": "Rendas", 
-        "Rendimento": "Rendas", "Adicional": "Rendas",
-        "Moradia": "Despesas essenciais", "Reforma": "Despesas essenciais",
-        "Contas residenciais": "Despesas essenciais", "Supermercado": "Despesas essenciais",
-        "Transporte": "Despesas essenciais", "TV / Internet / Telefone": "Despesas essenciais",
-        "Pets": "Despesas essenciais", "Plano de Saúde": "Despesas essenciais", "Medicamentos": "Despesas essenciais", "Plano de saúde": "Despesas essenciais",
-        "Nutrição e atividade física": "Despesas essenciais", "Cuidados médicos ou psicológicos": "Despesas essenciais",
-        "Trabalho": "Despesas essenciais", "Educação": "Despesas essenciais", "Móveis e eletrodomésticos": "Despesas não essenciais", 
+        "Remuneração": "Rendas", 
+        "Cashback": "Rendas", 
+        "Rendimento": "Rendas", 
+        "Adicional": "Rendas",
+        "Moradia": "Despesas essenciais", 
+        "Reforma": "Despesas essenciais",
+        "Contas residenciais": "Despesas essenciais", 
+        "Supermercado": "Despesas essenciais",
+        "Transporte": "Despesas essenciais", 
+        "TV / Internet / Telefone": "Despesas essenciais",
+        "Pets": "Despesas essenciais", 
+        "Plano de Saúde": 
+        "Despesas essenciais", 
+        "Medicamentos": "Despesas essenciais", 
+        "Plano de saúde": "Despesas essenciais",
+        "Nutrição e atividade física": "Despesas essenciais", 
+        "Cuidados médicos ou psicológicos": "Despesas essenciais",
+        "Trabalho": "Despesas essenciais", 
+        "Educação": "Despesas essenciais", 
+        "Móveis e eletrodomésticos": "Despesas não essenciais", 
         "Decoração e jardinagem": "Despesas não essenciais", "Vestuário": "Despesas não essenciais", "Bares / Restaurantes / Delivery": "Despesas não essenciais",
         "Estética": "Despesas não essenciais", "Lazer": "Despesas não essenciais", "Presentes": "Despesas não essenciais", "Doações": "Despesas não essenciais",
         "Eletrônicos": "Despesas não essenciais", "Investimentos": "Investimentos", "Impostos e taxas": "Impostos e taxas", "Previdência": "Impostos e taxas"
@@ -330,25 +342,40 @@ def main():
             st.plotly_chart(fig_macro, width='stretch')
 
         with c2:
+            with c2:
             st.subheader("🔎 Detalhar grupo de categorias")
+            
+            # 1. Seletor da Categoria Macro
             opcoes_macro = df_gastos['Macro_Grupo'].dropna().unique().tolist()
             opcoes_macro.sort()
-            
             selecao_macro = st.selectbox("Selecione o grupo para ver detalhes:", opcoes_macro)
             
-            df_detalhe = df_gastos[df_gastos['Macro_Grupo'] == selecao_macro].copy()
+            # 2. NOVO: Seletor de Mês (com opção de ver o ano todo)
+            meses_disponiveis = ["Todos (Ano inteiro)"] + df_gastos['Mes_Pagamento'].dropna().unique().tolist()
+            selecao_mes = st.selectbox("Filtrar por mês:", meses_disponiveis)
             
+            # 3. Lógica de filtro duplo
+            if selecao_mes == "Todos (Ano inteiro)":
+                df_detalhe = df_gastos[df_gastos['Macro_Grupo'] == selecao_macro].copy()
+                titulo_grafico = f"Detalhamento: {selecao_macro} (Anual)"
+            else:
+                df_detalhe = df_gastos[(df_gastos['Macro_Grupo'] == selecao_macro) & (df_gastos['Mes_Pagamento'] == selecao_mes)].copy()
+                titulo_grafico = f"Detalhamento: {selecao_macro} em {selecao_mes}"
+            
+            # 4. Plota o Sunburst
             if not df_detalhe.empty:
                 fig_detalhe = px.sunburst(
-                    df_detalhe, path=['Tipo', 'Transação'], values='Valor_Abs',
-                    title=f"Detalhamento: {selecao_macro}",
+                    df_detalhe, 
+                    path=['Tipo', 'Transação'], 
+                    values='Valor_Abs',
+                    title=titulo_grafico, # Título dinâmico
                     color_discrete_sequence=px.colors.qualitative.Prism,
                     height=600
                 )
                 fig_detalhe.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
                 st.plotly_chart(fig_detalhe, width='stretch')
             else:
-                st.info("Sem dados para este grupo.")
+                st.info(f"Sem gastos registrados em '{selecao_macro}' para o período selecionado.")
 
         st.divider()
         
