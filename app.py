@@ -261,7 +261,7 @@ def main():
                 st.info("Sem movimentação de investimentos neste mês.")
 
             st.subheader(f"Auditoria de gastos")
-            st.metric(label="Despesas totais:", value=f"R$ {saidas:,.2f}")
+            st.metric(label="Total acumulado", value=f"R$ {saidas:,.2f}")
             df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].copy()
             df_auditoria = df_auditoria.sort_values(by=['Data', 'Valor'], na_position='first')
             df_auditoria['Data'] = df_auditoria['Data'].dt.strftime('%d/%m/%Y')
@@ -336,10 +336,10 @@ def main():
         
         cores_personalizadas = {
             "Despesas essenciais": "#87CEFA",    
-            "Despesas não essenciais": "#0068C9", 
-            "Impostos e taxas": "#FFB6C1",       
-            "Outros": "#FF4B4B",              
-            "Investimentos": "#81C784"           
+            "Gastos não essenciais": "#0068C9", 
+            "Impostos e taxas": "#FFB6C1",                     
+            "Investimentos": "#81C784",
+            "Outros": "#FF4B4B"
         }
 
         with c1:
@@ -379,7 +379,7 @@ def main():
                     values='Valor_Abs',
                     title=titulo_grafico, # Título dinâmico
                     color_discrete_sequence=px.colors.qualitative.Prism,
-                    height=600
+                    height=700
                 )
                 fig_detalhe.update_traces(hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>")
                 st.plotly_chart(fig_detalhe, width='stretch')
@@ -402,6 +402,7 @@ def main():
             df_favorecidos = df_favorecidos.nlargest(10, 'Valor_Abs')
             df_favorecidos = df_favorecidos.sort_values('Valor_Abs', ascending=True)
 
+            # 4. Gráfico de Barras Horizontais
             fig_top10 = px.bar(
                 df_favorecidos,
                 x='Valor_Abs', y='Favorecido', orientation='h',
@@ -409,11 +410,24 @@ def main():
                 color='Valor_Abs', color_continuous_scale='Reds', text='Valor_Abs'
             )
             
-            fig_top10.update_layout(coloraxis_showscale=True)
+            # --- ATUALIZAÇÃO DE ESTÉTICA (LAYOUT) ---
+            fig_top10.update_layout(
+                height=600, # Deixa o gráfico mais alto
+                font=dict(size=14), # Aumenta a fonte geral dos eixos
+                title_font=dict(size=22, family="Arial, sans-serif"), # Deixa o título em destaque
+                xaxis_title=None, # Esconde a palavra "Valor_Abs"
+                yaxis_title=None, # Esconde a palavra "Favorecido"
+                margin=dict(r=100) # Dá uma margem na direita para o número não cortar
+            )
+            
+            # --- ATUALIZAÇÃO DE ESTÉTICA (TEXTOS DAS BARRAS) ---
             fig_top10.update_traces(
-                texttemplate='R$ %{x:,.2f}', textposition='outside',
+                texttemplate='R$ %{x:,.2f}', 
+                textposition='outside',
+                textfont=dict(size=14, weight="bold"), # Aumenta e deixa em negrito o valor R$
                 hovertemplate="Favorecido: %{y}<br>Total: R$ %{x:,.2f}<extra></extra>"
             )
+            
             st.plotly_chart(fig_top10, width='stretch')
         else:
             st.info("Não há dados suficientes de despesas para gerar o Top 10.")
