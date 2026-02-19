@@ -114,7 +114,7 @@ def render_saude(df_mes):
         entradas = df_mes[(df_mes['Valor'] > 0) & (df_mes['Tipo'] != "Pagamento de cartão")]['Valor'].sum()
         saidas = df_mes[(df_mes['Valor'] < 0) & (~df_mes['Tipo'].str.contains("Investiment", case=False)) & (df_mes['Tipo'] != "Pagamento de cartão")]['Valor'].abs().sum()
         taxa = ((entradas - saidas) / entradas * 100) if entradas > 0 else 0
-        fig = px.pie(names=['Poupado', 'Gasto'], values=[max(0, entradas-saidas), saidas], hole=0.6, height=400, title="Fluxo de Caixa Líquido")
+        fig = px.pie(names=['Poupado', 'Gasto'], values=[max(0, entradas-saidas), saidas], hole=0.6, height=350, title="Fluxo de Caixa Líquido")
         fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
         fig.update_traces(textfont_size=16)
         fig.update_layout(legend=dict(font=dict(size=16), orientation="v", yanchor="middle", y=0.5, xanchor="left", x=-0.2))
