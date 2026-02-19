@@ -124,7 +124,10 @@ def render_saude(df_mes):
 
     with c2:
         df_inv = df_mes[df_mes['Tipo'].str.contains("Investiment", case=False, na=False)]
-        st.subheader("Investimentos: f'R$ {df_inv['Valor'].sum():,.2f}'")
+        st.subheader("Investimentos")
+        investimentos = df_inv['Valor'].sum()
+        investimentos = 'R$ '+str(investimentos)
+        st.subheader(investimentos)
         if not df_inv.empty:
             #st.metric("", f"R$ {df_inv['Valor'].sum():,.2f}")
             st.dataframe(df_inv[['Data', 'Transação', 'Valor']], hide_index=True)
