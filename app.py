@@ -255,12 +255,6 @@ def main():
     tabs = st.tabs(["📊 Saúde", "📈 Histórico", "🏢 Raio-X", "🔮 Projeções"])
 
     with tabs[0]:
-        mes_atual_nome = MONTHS_ORDER[datetime.datetime.now().month - 1]
-        meses_disp = df['Mes_Pagamento'].unique().tolist()
-        mes_sel = st.selectbox("Mês:", meses_disp, index=meses_disp.index(mes_atual_nome) if mes_atual_nome in meses_disp else 0)
-        render_metrics_and_charts(df[df['Mes_Pagamento'] == mes_sel])
-
-    with tabs[0]:
         # Aba 1: Saúde Financeira
         mes_atual_nome = MONTHS_ORDER[datetime.datetime.now().month - 1]
         meses_disp = df['Mes_Pagamento'].unique().tolist()
