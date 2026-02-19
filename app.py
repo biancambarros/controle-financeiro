@@ -130,36 +130,47 @@ def render_saude(df_mes):
     total_gastos = df_gastos_reais['Valor'].abs().sum()
 
     with c1:
-        # 1. Entradas reais (excluindo pagamentos de cartão para não duplicar)
-        entradas = df_mes[(df_mes['Valor'] > 0) & (~df_mes['Tipo'].astype(str).str.contains("Pagamento de cartão", case=False, na=False))]['Valor'].sum()
+        # 1. Entradas reais (agora EXCLUÍMOS os investimentos para não somar resgate como se fosse salário)
+        entradas_comuns = df_mes[
+            (df_mes['Valor'] > 0) & 
+            (df_mes['Macro_Grupo'] != "Investimentos") & 
+            (~df_mes['Tipo'].astype(str).str.contains("Pagamento de cartão", case=False, na=False))
+        ]['Valor'].sum()
         
-        # 2. Total Investido (pegamos apenas as saídas do grupo Investimentos)
-        total_investido = df_mes[(df_mes['Macro_Grupo'] == "Investimentos") & (df_mes['Valor'] < 0)]['Valor'].abs().sum()
+        # 2. O Saldo Líquido de Investimentos (Aportes negativos + Resgates positivos)
+        saldo_investimentos = df_mes[df_mes['Macro_Grupo'] == "Investimentos"]['Valor'].sum()
         
-        # 3. Sobra Livre (O que entrou - o que consumiu - o que investiu)
-        sobra_livre = entradas - total_gastos - total_investido
+        if saldo_investimentos < 0:
+            # Aportou mais do que resgatou (dinheiro efetivamente virou patrimônio)
+            total_investido = abs(saldo_investimentos)
+            entradas_totais = entradas_comuns
+        else:
+            # Resgatou mais do que aportou (o saldo extra volta para compor o caixa do mês)
+            total_investido = 0
+            entradas_totais = entradas_comuns + saldo_investimentos
+            
+        # 3. Sobra Livre na Conta
+        sobra_livre = entradas_totais - total_gastos - total_investido
         
-        # 4. Taxa de Poupança (tudo que não foi Consumo / Entradas)
+        # 4. Taxa de Poupança real (Tudo que não virou fumaça / Total que entrou)
         valor_poupado = sobra_livre + total_investido
-        taxa = (valor_poupado / entradas * 100) if entradas > 0 else 0
-
-        # 1. Definimos as categorias e valores em variáveis para ficar mais limpo
+        taxa = (valor_poupado / entradas_totais * 100) if entradas_totais > 0 else 0
+        
+        # 5. Configuração do Gráfico com a paleta de tons sóbrios
         categorias_pizza = ['Sobra na Conta', 'Investido', 'Gasto']
         valores_pizza = [max(0, sobra_livre), total_investido, total_gastos]
         
-        # 2. Criamos o mapa de cores (tons sóbrios)
         mapa_de_cores = {
             'Sobra na Conta': '#7C9D96',  # Verde Sálvia
-            'Investido': '#4A6FA5',       # Azul Muted/Marinho
+            'Investido': '#4A6FA5',       # Azul Marinho
             'Gasto': '#C06C84'            # Rosa Escuro / Rose Sóbrio
         }
 
-        # 3. Criamos o gráfico passando o mapeamento
         fig = px.pie(
             names=categorias_pizza, 
             values=valores_pizza, 
-            color=categorias_pizza,               # Dizemos ao Plotly para colorir baseado nos nomes
-            color_discrete_map=mapa_de_cores,     # Passamos o nosso dicionário de cores
+            color=categorias_pizza,
+            color_discrete_map=mapa_de_cores,
             hole=0.6, 
             height=325, 
             title="<b>Fluxo de Caixa Líquido</b>"
