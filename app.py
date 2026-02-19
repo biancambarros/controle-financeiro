@@ -257,7 +257,7 @@ def main():
             saidas = df_mes[filtro_saidas]['Valor'].abs().sum()
             taxa = ((entradas - saidas) / entradas * 100) if entradas > 0 else 0
             
-            fig = px.pie(names=['Poupado (Investido + Sobra)', 'Gasto (Consumo Real)'], height=400,
+            fig = px.pie(names=['Poupado (Investido + Sobra)', 'Gasto (Consumo Real)'], height=500,
                          values=[max(0, entradas-saidas), saidas], 
                          hole=0.6, title=f"Fluxo de Caixa Líquido")
             fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
