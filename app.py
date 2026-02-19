@@ -123,18 +123,14 @@ def render_saude(df_mes):
         st.plotly_chart(render_bank_treemap(df_mes), use_container_width=True, key="tree_banco")
 
     with c2:
-        df_inv = df_mes[df_mes['Tipo'].str.contains("Investiment", case=False, na=False)]
-        st.subheader("Investimentos")
-        investimentos = df_inv['Valor'].sum()
-        investimentos = 'R$ '+str(investimentos)
-        st.subheader(investimentos)
+        # Busca por "Imóveis" OU "Renda fixa" (ignora maiúsculas/minúsculas)
+        df_inv = df_mes[df_mes['Tipo'].str.contains("Imóveis|Renda fixa", case=False, na=False)]
+        st.subheader(f"Investimentos: R$ {df_inv['Valor'].sum():,.2f}")
         if not df_inv.empty:
-            #st.metric("", f"R$ {df_inv['Valor'].sum():,.2f}")
             st.dataframe(df_inv[['Data', 'Transação', 'Valor']], hide_index=True)
         
-        st.subheader("Gastos")
         filtro_saidas = ((df_mes['Valor'] < 0) & (~df_mes['Tipo'].str.contains("Investiment", case=False)) & (df_mes['Tipo'] != "Pagamento de cartão"))
-        st.metric("", f"R$ {df_mes[filtro_saidas]['Valor'].abs().sum():,.2f}")
+        st.subheader(f"Gastos: R$ {df_mes[filtro_saidas]['Valor'].abs().sum():,.2f}")
         df_audit = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Data')
         df_audit['Data'] = df_audit['Data'].dt.strftime('%d/%m/%Y')
         st.dataframe(df_audit, use_container_width=True, hide_index=True)
