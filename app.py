@@ -4,8 +4,10 @@ import plotly.express as px
 import requests
 import streamlit as st
 
+
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="💲 Dashboard Financeiro", layout="wide")
+
 
 # --- AUTENTICAÇÃO ---
 def check_password():
@@ -89,7 +91,8 @@ def process_financial_logic(results):
         df = df.sort_values(by=['Data', 'Mes_Pagamento'], na_position='first')
     return df
 
-# --- FUNÇÃO AUXILIAR: MAPEAMENTO MACRO ---
+
+# --- FUNÇÕES AUXILIARES ---
 def apply_macro_categories(df):
     """Aplica a lógica de Macro Grupos ao DataFrame inteiro."""
     mapeamento = {
@@ -108,7 +111,6 @@ def apply_macro_categories(df):
     df['Macro_Grupo'] = df['Tipo'].apply(lambda x: mapeamento.get(x, 'Outros'))
     return df
 
-# --- NOVA LÓGICA DE PROJEÇÃO (AGORA RETORNA DADOS DETALHADOS) ---
 def calculate_future_installments(df):
     """Gera um DataFrame com todas as parcelas futuras projetadas."""
     df_parcelas = df[df['Parcela'].astype(str).str.contains('/')].copy()
@@ -163,6 +165,7 @@ def plot_bank_treemap(df_mes):
                       color='Valor', color_continuous_scale='Blues')
     fig.update_traces(hovertemplate="Banco: %{label}<br>Valor: R$ %{value:,.2f}<extra></extra>")
     return fig
+
 
 # --- MONTANDO O DASHBOARD ---
 def main():
@@ -245,7 +248,7 @@ def main():
 
     # 2. SALDO ANUAL
     elif selected_tab == "📈 Histórico anual":
-        #st.header("Saldos")
+        st.header("Saldos mensais")
         
         df_anual = df.groupby('Mes_Pagamento')['Valor'].sum().reset_index()
         ordem_meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
