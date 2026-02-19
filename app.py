@@ -100,10 +100,11 @@ def process_data(results):
 
 def render_bank_treemap(df_mes):
     df_banco = df_mes[df_mes['Valor'] < 0].groupby('Banco')['Valor'].sum().abs().reset_index()
-    fig = px.treemap(df_banco, path=['Banco'], values='Valor', title="Gastos por Instituição", color='Valor', height=300, color_continuous_scale='Blues')
+    fig = px.treemap(df_banco, path=['Banco'], values='Valor', title="Gastos por Instituição", color='Valor', height=350, color_continuous_scale='Blues')
     fig.update_traces(textinfo="label+text", texttemplate="<b>%{label}</b><br>R$ %{value:,.2f}")
     fig.update_traces(textfont_size=16)
     fig.update_layout(legend=dict(font=dict(size=16)))
+    fig.update_layout(title={'font': {'size': 24}})
     fig.update_layout(coloraxis_showscale=False, margin=dict(t=50, l=10, r=10, b=10))
     return fig
 
@@ -113,10 +114,11 @@ def render_saude(df_mes):
         entradas = df_mes[(df_mes['Valor'] > 0) & (df_mes['Tipo'] != "Pagamento de cartão")]['Valor'].sum()
         saidas = df_mes[(df_mes['Valor'] < 0) & (~df_mes['Tipo'].str.contains("Investiment", case=False)) & (df_mes['Tipo'] != "Pagamento de cartão")]['Valor'].abs().sum()
         taxa = ((entradas - saidas) / entradas * 100) if entradas > 0 else 0
-        fig = px.pie(names=['Poupado', 'Gasto'], values=[max(0, entradas-saidas), saidas], hole=0.6, height=500, title="Fluxo de Caixa Líquido")
+        fig = px.pie(names=['Poupado', 'Gasto'], values=[max(0, entradas-saidas), saidas], hole=0.6, height=450, title="Fluxo de Caixa Líquido")
         fig.add_annotation(text=f"{taxa:.1f}%", x=0.5, y=0.5, showarrow=False, font_size=30)
         fig.update_traces(textfont_size=16)
         fig.update_layout(legend=dict(font=dict(size=16)))
+        fig.update_layout(title={'font': {'size': 24}})
         st.plotly_chart(fig, use_container_width=True, key="pie_saude")
         st.plotly_chart(render_bank_treemap(df_mes), use_container_width=True, key="tree_banco")
 
