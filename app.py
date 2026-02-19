@@ -101,24 +101,34 @@ def apply_macro_categories(df):
         "Rendimento": "Rendas", 
         "Adicional": "Rendas",
         "Moradia": "Despesas essenciais", 
-        "Reforma": "Despesas essenciais",
         "Contas residenciais": "Despesas essenciais", 
         "Supermercado": "Despesas essenciais",
         "Transporte": "Despesas essenciais", 
         "TV / Internet / Telefone": "Despesas essenciais",
         "Pets": "Despesas essenciais", 
-        "Plano de Saúde": 
-        "Despesas essenciais", 
+        "Filhos": "Despesas essenciais",
         "Medicamentos": "Despesas essenciais", 
         "Plano de saúde": "Despesas essenciais",
         "Nutrição e atividade física": "Despesas essenciais", 
         "Cuidados médicos ou psicológicos": "Despesas essenciais",
         "Trabalho": "Despesas essenciais", 
-        "Educação": "Despesas essenciais", 
-        "Móveis e eletrodomésticos": "Despesas não essenciais", 
-        "Decoração e jardinagem": "Despesas não essenciais", "Vestuário": "Despesas não essenciais", "Bares / Restaurantes / Delivery": "Despesas não essenciais",
-        "Estética": "Despesas não essenciais", "Lazer": "Despesas não essenciais", "Presentes": "Despesas não essenciais", "Doações": "Despesas não essenciais",
-        "Eletrônicos": "Despesas não essenciais", "Investimentos": "Investimentos", "Impostos e taxas": "Impostos e taxas", "Previdência": "Impostos e taxas"
+        "Educação": "Despesas essenciais",
+        "Previdência": "Despesas essenciais",
+        "Reforma": "Gastos não essenciais",
+        "Bares / Restaurantes / Delivery": "Gastos não essenciais",
+        "Móveis e eletrodomésticos": "Gastos não essenciais", 
+        "Decoração e jardinagem": "Gastos não essenciais", 
+        "Eletrônicos": "Gastos não essenciais",
+        "Vestuário": "Gastos não essenciais",
+        "Estética": "Gastos não essenciais", 
+        "Lazer": "Gastos não essenciais",
+        "Presentes": "Gastos não essenciais", 
+        "Doações": "Gastos não essenciais",
+        "Viagens":  "Gastos não essenciais",
+        "Investimentos": "Investimentos", 
+        "Imposto de renda": "Impostos e taxas", 
+        "Impostos municipais": "Impostos e taxas", 
+        "Taxas bancárias": "Impostos e taxas" 
     }
     df['Macro_Grupo'] = df['Tipo'].apply(lambda x: mapeamento.get(x, 'Outros'))
     return df
@@ -251,7 +261,7 @@ def main():
                 st.info("Sem movimentação de investimentos neste mês.")
 
             st.subheader(f"Auditoria de gastos")
-            st.metric(label="Total calculado:", value=f"R$ {saidas:,.2f}")
+            st.metric(label="Despesas totais:", value=f"R$ {saidas:,.2f}")
             df_auditoria = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].copy()
             df_auditoria = df_auditoria.sort_values(by=['Data', 'Valor'], na_position='first')
             df_auditoria['Data'] = df_auditoria['Data'].dt.strftime('%d/%m/%Y')
