@@ -342,7 +342,6 @@ def main():
             st.plotly_chart(fig_macro, width='stretch')
 
         with c2:
-            with c2:
             st.subheader("🔎 Detalhar grupo de categorias")
             
             # 1. Seletor da Categoria Macro
