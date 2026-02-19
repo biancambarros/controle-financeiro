@@ -126,12 +126,12 @@ def render_saude(df_mes):
         st.subheader("Investimentos")
         df_inv = df_mes[df_mes['Tipo'].str.contains("Investiment", case=False, na=False)]
         if not df_inv.empty:
-            st.metric("Saldo Líquido", f"R$ {df_inv['Valor'].sum():,.2f}")
+            st.metric("", f"R$ {df_inv['Valor'].sum():,.2f}")
             st.dataframe(df_inv[['Data', 'Transação', 'Valor']], hide_index=True)
         
-        st.subheader("Auditoria de Gastos")
+        st.subheader("Gastos")
         filtro_saidas = ((df_mes['Valor'] < 0) & (~df_mes['Tipo'].str.contains("Investiment", case=False)) & (df_mes['Tipo'] != "Pagamento de cartão"))
-        st.metric("Total Saídas", f"R$ {df_mes[filtro_saidas]['Valor'].abs().sum():,.2f}")
+        st.metric("", f"R$ {df_mes[filtro_saidas]['Valor'].abs().sum():,.2f}")
         df_audit = df_mes[filtro_saidas][['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Data')
         df_audit['Data'] = df_audit['Data'].dt.strftime('%d/%m/%Y')
         st.dataframe(df_audit, use_container_width=True, hide_index=True)
