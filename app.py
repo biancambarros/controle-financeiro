@@ -333,18 +333,29 @@ def main():
         st.warning("Sem dados.")
         return
 
-    tabs = st.tabs(["🩺 Saúde financeira", "📊 Histórico", "🕵🏻‍♂️ Raio-X do consumo", "🔮 Projeções", "🎯 Metas"])
+    # Roteamento robusto (substitui o st.tabs)
+    opcoes_menu = ["🩺 Saúde financeira", "📊 Histórico", "🕵🏻‍♂️ Raio-X do consumo", "🔮 Projeções", "🎯 Metas"]
+    aba_ativa = st.radio("Navegação", opcoes_menu, horizontal=True, label_visibility="collapsed")
+    st.divider()
 
-    with tabs[0]:
+    if aba_ativa == "🩺 Saúde financeira":
         meses_disp = [m for m in MONTHS_ORDER if m in df['Mes_Pagamento'].unique()]
         mes_atual = MONTHS_ORDER[datetime.datetime.now().month - 1]
         idx = meses_disp.index(mes_atual) if mes_atual in meses_disp else 0
         mes_sel = st.selectbox("Mês:", meses_disp, index=idx, key="sel_mes_saude")
         render_saude(df[df['Mes_Pagamento'] == mes_sel])
 
-    with tabs[1]: render_historico(df)
-    with tabs[2]: render_raiox(df)
-    with tabs[3]: render_projeções_completo(df)
+    elif aba_ativa == "📊 Histórico":
+        render_historico(df)
 
+    elif aba_ativa == "🕵🏻‍♂️ Raio-X do consumo":
+        render_raiox(df)
+
+    elif aba_ativa == "🔮 Projeções":
+        render_projeções_completo(df)
+        
+    elif aba_ativa == "🎯 Metas":
+        st.info("Aba de metas em construção...")
+        
 if __name__ == "__main__":
     if check_password(): main()
