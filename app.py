@@ -106,7 +106,7 @@ def process_data(results):
             "Valor": get_prop_safe(p.get("Valor"), "number") * -1,
             "Tipo": get_prop_safe(p.get("Tipo de despesa"), "select"),
             "Mes_Pagamento": get_prop_safe(p.get("Mês de pagamento"), "select"),
-            "Favorecido": get_prop_safe(p.get("Favorecido"), "people"),
+            "Favorecido": get_prop_safe(p.get("Favorecido"), "rich_text"),
             "Descrição": get_prop_safe(p.get("Descrição"), "rich_text"),
             "Parcela": get_prop_safe(p.get("Parcela"), "rich_text")
         })
@@ -333,20 +333,25 @@ def render_raiox(df):
     st.divider()
     df_fav = df_gastos[df_gastos['Favorecido'] != "N/A"].groupby('Favorecido')['Valor_Abs'].sum().nlargest(10).reset_index()
     
-    # Top 10 Favorecidos
-    fig_fav = px.bar(
-        df_fav.sort_values('Valor_Abs'), 
-        x='Valor_Abs', 
-        y='Favorecido', 
-        orientation='h', 
-        title="<b>Top 10 Maiores Favorecidos (Acumulado)</b>"
-    )
-    # Forçamos a cor quente (Rosa Sóbrio) para combinar com a ideia de saída de caixa
-    fig_fav.update_traces(marker_color="#C06C84", hovertemplate="Favorecido: %{y}<br>Total: R$ %{x:,.2f}<extra></extra>")
-    fig_fav.update_layout(title_font=dict(size=24, family="sans-serif"), title_x=0)
-    fig_fav.update_layout(separators=",.", xaxis_title=None, yaxis_title=None) # Remove textos de eixo para ficar mais limpo
-    
-    st.plotly_chart(fig_fav, use_container_width=True, key="top_fav")
+    # Rede de segurança: Só desenha o gráfico se tiver algum favorecido válido
+    if df_fav.empty:
+        st.info("Nenhum 'Favorecido' preenchido nos registros para gerar o ranking.")
+    else:
+        # Top 10 Favorecidos
+        fig_fav = px.bar(
+            df_fav.sort_values('Valor_Abs'), 
+            x='Valor_Abs', 
+            y='Favorecido', 
+            orientation='h', 
+            title="<b>Top 10 Maiores Favorecidos (Acumulado)</b>"
+        )
+        # Forçamos a cor quente (Rosa Sóbrio)
+        fig_fav.update_traces(marker_color="#C06C84", hovertemplate="Favorecido: %{y}<br>Total: R$ %{x:,.2f}<extra></extra>")
+        fig_fav.update_layout(title_font=dict(size=24, family="sans-serif"), title_x=0)
+        fig_fav.update_layout(separators=",.", xaxis_title=None, yaxis_title=None)
+        
+        st.plotly_chart(fig_fav, use_container_width=True, key="top_fav")
+        
 def render_projeções_completo(df):
     st.header("🔮 Projeções Futuras")
     df_parcelas = df[df['Parcela'].astype(str).str.contains('/')].copy()
