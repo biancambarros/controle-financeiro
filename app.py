@@ -220,7 +220,7 @@ def render_saude(df_mes):
 def render_historico(df):
     df_anual = df.groupby('Mes_Pagamento', observed=True)['Valor'].sum().reset_index()
     df_anual['Mes_Pagamento'] = pd.Categorical(df_anual['Mes_Pagamento'], categories=MONTHS_ORDER, ordered=True)
-    fig = px.bar(df_anual.sort_values('Mes_Pagamento'), x='Mes_Pagamento', y='Valor', color='Valor', color_continuous_scale='RdYlGn')
+    fig = px.bar(df_anual.sort_values('Mes_Pagamento'), x='Mes_Pagamento', y='Valor', title='Saldos mensais', color='Valor', color_continuous_scale='RdYlGn')
     fig.update_traces(hovertemplate="Mês: %{x}<br>Saldo: R$ %{y:,.2f}<extra></extra>")
     fig.update_layout(title_font=dict(size=24, family="sans-serif"), title_x=0)
     fig.update_layout(separators=",.")
@@ -248,12 +248,12 @@ def render_historico(df):
         df_sai = df[(df['Valor'] < 0) & (df['Tipo'] != "Pagamento de cartão")].copy()
         df_sai['Valor_Abs'] = df_sai['Valor'].abs()
         if not df_sai.empty:
-            # Adicionada a coluna 'Descrição' ao path
+            # --- MUDANÇA AQUI: O path agora define o centro como Macro_Grupo e a borda como Tipo ---
             fig_sai = px.sunburst(
                 df_sai, 
-                path=['Tipo', 'Descrição'], 
+                path=['Macro_Grupo', 'Tipo'], 
                 values='Valor_Abs', 
-                title="Gastos (Anual)",
+                title="<b>Gastos (Anual)</b>",
                 height=800
             )
             # Formatação de 2 casas decimais para o Sunburst
