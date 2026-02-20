@@ -124,7 +124,7 @@ def formata_br(valor):
 def render_bank_treemap(df_gastos_filtrado):
     df_banco = df_gastos_filtrado.groupby('Banco')['Valor'].sum().abs().reset_index()
     
-    fig = px.treemap(df_banco, path=['Banco'], values='Valor', title="Gastos por Instituição", color='Valor', height=275, color_continuous_scale='Blues')
+    fig = px.treemap(df_banco, path=['Banco'], values='Valor', title="Gastos por Instituição", color='Valor', height=275, color_continuous_scale='Reds')
     fig.update_traces(textinfo="label+text", texttemplate="<b>%{label}</b><br>R$ %{value:,.2f}", textfont_size=14)
     fig.update_layout(coloraxis_showscale=False, margin=dict(t=50, l=10, r=10, b=10))
     fig.update_layout(title_font=dict(size=24, family="sans-serif"), title_x=0)
