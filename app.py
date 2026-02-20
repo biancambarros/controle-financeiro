@@ -31,20 +31,21 @@ MACRO_CATEGORY_MAP = {
 }
 
 MAPA_CORES_MACRO = {
-                "Despesas essenciais":  "#D4A373",     # Tom areia/terracota
-                "Gastos não essenciais": "#C06C84",    # Rosa Sóbrio
-                "Investimentos": "#6D597A",            # Roxo
-                "Impostos e taxas": "#A3A3A3"          # Cinza neutro
-            }
+    "Despesas essenciais": "#F4A261",    # Laranja Areia Vivo (era o terracota apagado)
+    "Gastos não essenciais": "#EF476F",  # Rosa/Melancia Vibrante (era o rosa sóbrio)
+    "Investimentos": "#9D4EDD",          # Roxo Lavanda Brilhante (era o roxo ameixa fechado)
+    "Impostos e taxas": "#8D99AE"        # Cinza Metálico/Azulado (mais limpo que o cinza puro)
+}
 
 MAPA_CORES_RENDAS = {
-                "Remuneração": "#4A6FA5",  # Azul Marinho 
-                "Adicional": "#4A6FA5",  # Azul Marinho 
-                "Rendimento": "#6D597A",   # Roxo
-                "Cashback": "#6D597A",   # Roxo
-                "Renda fixa": "#6D597A",   # Roxo 
-                "Plano de saúde": "#52796F",     # Verde profundo
-            }
+    "Remuneração": "#3A86FF",       # Azul Royal Vibrante (era o azul marinho)
+    "Adicional": "#3A86FF",         # Azul Royal Vibrante 
+    "Rendimento": "#9D4EDD",        # Roxo Lavanda Brilhante (link visual direto com Investimentos)
+    "Cashback": "#9D4EDD",          # Roxo Lavanda Brilhante
+    "Renda fixa": "#9D4EDD",        # Roxo Lavanda Brilhante
+    "Plano de saúde": "#06D6A0",    # Verde Esmeralda/Teal Vivo (era o verde profundo fechado)
+}
+
 
 st.set_page_config(page_title="💲 Dashboard Financeiro", layout="wide")
 
@@ -177,10 +178,11 @@ def render_saude(df_mes):
         valores_pizza = [max(0, sobra_livre), total_investido, total_gastos]
         
         mapa_de_cores = {
-            'Sobra na Conta': '#7C9D96',  # Verde Sálvia
-            'Investimentos': '#4A6FA5',       # Azul Marinho
-            'Custos': '#C06C84'            # Rosa Escuro / Rose Sóbrio
+            'Sobra na Conta': '#06D6A0',  # O Verde vivo
+            'Investimentos': '#9D4EDD',   # O Roxo brilhante
+            'Custos': '#EF476F'           # O Rosa vibrante
         }
+
 
         fig = px.pie(
             names=categorias_pizza, 
