@@ -39,11 +39,12 @@ MAPA_CORES_MACRO = {
             }
 
 MAPA_CORES_RENDAS = {
-                "Remuneração": "#4A6FA5",  # Azul Marinho (conectado aos investimentos)
+                "Remuneração": "#4A6FA5",  # Azul Marinho 
+                "Adicional": "#4A6FA5",  # Azul Marinho 
                 "Rendimento": "#6D597A",   # Roxo
                 "Cashback": "#6D597A",   # Roxo
-                "Adicional": "#52796F",     # Verde profundo
-                #"(?)": "#A3A3A3"           # Cinza neutro para tipos não mapeados
+                "Renda fixa": "#6D597A",   # Roxo 
+                "Plano de saúde": "#52796F",     # Verde profundo
             }
 
 st.set_page_config(page_title="💲 Dashboard Financeiro", layout="wide")
