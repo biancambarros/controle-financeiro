@@ -203,7 +203,7 @@ def render_saude(df_mes):
         
         saldo_inv = df_inv['Valor'].sum()
         saldo_inv = saldo_inv * -1
-        st.subheader(f"Investimentos: R$ {saldo_inv:,.2f}")
+        st.subheader(f"Investimentos: R$ {formata_br(saldo_inv)}")
         
         if not df_inv.empty:
             # Formata a data igual à tabela de gastos
@@ -212,7 +212,7 @@ def render_saude(df_mes):
             st.dataframe(df_inv[['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Data'), hide_index=True)
         
         # === GASTOS ===
-        st.subheader(f"Gastos: R$ {total_gastos:,.2f}")
+        st.subheader(f"Gastos: R$ {formata_br(total_gastos)}")
         df_audit = df_gastos_reais[['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Data')
         df_audit['Data'] = df_audit['Data'].dt.strftime('%d/%m/%Y')
         st.dataframe(df_audit, use_container_width=True, hide_index=True)
