@@ -31,11 +31,10 @@ MACRO_CATEGORY_MAP = {
 }
 
 MAPA_CORES_MACRO = {
-                "Despesas essenciais": "#7C9D96",      # Verde Sálvia
+                "Despesas essenciais":  "#D4A373",     # Tom areia/terracota
                 "Gastos não essenciais": "#C06C84",    # Rosa Sóbrio
                 "Investimentos": "#6D597A",            # Roxo
-                "Impostos e taxas": "#D4A373",         # Tom areia/terracota
-                "Outros": "#A3A3A3"                    # Cinza neutro
+                "Impostos e taxas": "#A3A3A3"          # Cinza neutro
             }
 
 MAPA_CORES_RENDAS = {
