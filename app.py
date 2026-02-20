@@ -173,7 +173,7 @@ def render_saude(df_mes):
         taxa = (valor_poupado / entradas_totais * 100) if entradas_totais > 0 else 0
         
         # 5. Configuração do Gráfico com a paleta de tons sóbrios
-        categorias_pizza = ['Sobra na Conta', 'Investido', 'Gasto']
+        categorias_pizza = ['Sobra na Conta', 'Investimentos', 'Custos']
         valores_pizza = [max(0, sobra_livre), total_investido, total_gastos]
         
         mapa_de_cores = {
