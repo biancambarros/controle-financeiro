@@ -124,7 +124,7 @@ def formata_br(valor):
 def render_bank_treemap(df_gastos_filtrado):
     df_banco = df_gastos_filtrado.groupby('Banco')['Valor'].sum().abs().reset_index()
     
-    fig = px.treemap(df_banco, path=['Banco'], values='Valor', title="Gastos por Instituição", color='Valor', height=275, color_continuous_scale='Reds')
+    fig = px.treemap(df_banco, path=['Banco'], values='Valor', title="Custos por Instituição", color='Valor', height=275, color_continuous_scale='Reds')
     fig.update_traces(textinfo="label+text", texttemplate="<b>%{label}</b><br>R$ %{value:,.2f}", textfont_size=14)
     fig.update_layout(coloraxis_showscale=False, margin=dict(t=50, l=10, r=10, b=10))
     fig.update_layout(title_font=dict(size=24, family="sans-serif"), title_x=0)
@@ -178,8 +178,8 @@ def render_saude(df_mes):
         
         mapa_de_cores = {
             'Sobra na Conta': '#7C9D96',  # Verde Sálvia
-            'Investido': '#4A6FA5',       # Azul Marinho
-            'Gasto': '#C06C84'            # Rosa Escuro / Rose Sóbrio
+            'Investimentos': '#4A6FA5',       # Azul Marinho
+            'Custos': '#C06C84'            # Rosa Escuro / Rose Sóbrio
         }
 
         fig = px.pie(
@@ -227,8 +227,8 @@ def render_saude(df_mes):
             
             st.dataframe(df_inv[['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Data'), hide_index=True)
         
-        # === GASTOS ===
-        st.subheader(f"Gastos: R$ {formata_br(total_gastos)}")
+        # === CUSTOS ===
+        st.subheader(f"Custos: R$ {formata_br(total_gastos)}")
         df_audit = df_gastos_reais[['Data', 'Transação', 'Valor', 'Tipo']].sort_values('Data')
         df_audit['Data'] = df_audit['Data'].dt.strftime('%d/%m/%Y')
         st.dataframe(df_audit, use_container_width=True, hide_index=True)
@@ -253,7 +253,7 @@ def render_historico(df):
                 values='Valor', 
                 color='Tipo',                        # O Plotly vai olhar para o Tipo para pintar
                 color_discrete_map=MAPA_CORES_RENDAS,# Passamos a nossa paleta de rendas
-                title="Rendimentos (Anual)",
+                title="Rendimentos neste ano",
                 height=800
             )
             # Formatação de 2 casas decimais para o Sunburst
@@ -273,7 +273,7 @@ def render_historico(df):
                 values='Valor_Abs', 
                 color='Macro_Grupo',                  # Dizemos que a cor baseia-se no Macro_Grupo
                 color_discrete_map=MAPA_CORES_MACRO,  # Passamos a nossa paleta
-                title="<b>Gastos (Anual)</b>",
+                title="<b>Custos neste ano</b>",
                 height=800
             )
             # Formatação de 2 casas decimais para o Sunburst
