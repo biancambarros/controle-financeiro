@@ -30,6 +30,22 @@ MACRO_CATEGORY_MAP = {
     "Taxas bancárias": "Impostos e taxas"
 }
 
+MAPA_CORES_MACRO = {
+                "Despesas essenciais": "#7C9D96",      # Verde Sálvia
+                "Gastos não essenciais": "#C06C84",    # Rosa Sóbrio
+                "Investimentos": "#4A6FA5",            # Azul Marinho (mantendo o padrão)
+                "Impostos e taxas": "#D4A373",         # Tom areia/terracota
+                "Outros": "#A3A3A3"                    # Cinza neutro
+            }
+
+MAPA_CORES_RENDAS = {
+                "Remuneração": "#52796F",  # Verde profundo
+                "Rendimento": "#4A6FA5",   # Azul Marinho (conectado aos investimentos)
+                "Cashback": "#E9C46A",     # Amarelo mostarda (bônus)
+                "Adicional": "#F4A261"     # Laranja suave (extra)
+                #"(?)": "#A3A3A3"           # Cinza neutro para tipos não mapeados
+            }
+
 st.set_page_config(page_title="💲 Dashboard Financeiro", layout="wide")
 
 
@@ -235,6 +251,8 @@ def render_historico(df):
                 df_ent, 
                 path=['Tipo', 'Descrição'], 
                 values='Valor', 
+                color='Tipo',                        # O Plotly vai olhar para o Tipo para pintar
+                color_discrete_map=MAPA_CORES_RENDAS,# Passamos a nossa paleta de rendas
                 title="Rendimentos (Anual)",
                 height=800
             )
@@ -253,6 +271,8 @@ def render_historico(df):
                 df_sai, 
                 path=['Macro_Grupo', 'Tipo'], 
                 values='Valor_Abs', 
+                color='Macro_Grupo',                  # Dizemos que a cor baseia-se no Macro_Grupo
+                color_discrete_map=MAPA_CORES_MACRO,  # Passamos a nossa paleta
                 title="<b>Gastos (Anual)</b>",
                 height=800
             )
