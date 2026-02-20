@@ -33,16 +33,16 @@ MACRO_CATEGORY_MAP = {
 MAPA_CORES_MACRO = {
                 "Despesas essenciais": "#7C9D96",      # Verde Sálvia
                 "Gastos não essenciais": "#C06C84",    # Rosa Sóbrio
-                "Investimentos": "#4A6FA5",            # Azul Marinho (mantendo o padrão)
+                "Investimentos": "#6D597A",            # Roxo
                 "Impostos e taxas": "#D4A373",         # Tom areia/terracota
                 "Outros": "#A3A3A3"                    # Cinza neutro
             }
 
 MAPA_CORES_RENDAS = {
-                "Remuneração": "#52796F",  # Verde profundo
-                "Rendimento": "#4A6FA5",   # Azul Marinho (conectado aos investimentos)
-                "Cashback": "#E9C46A",     # Amarelo mostarda (bônus)
-                "Adicional": "#F4A261"     # Laranja suave (extra)
+                "Remuneração": "#4A6FA5",  # Azul Marinho (conectado aos investimentos)
+                "Rendimento": "#6D597A",   # Roxo
+                "Cashback": "#6D597A",   # Roxo
+                "Adicional": "#52796F",     # Verde profundo
                 #"(?)": "#A3A3A3"           # Cinza neutro para tipos não mapeados
             }
 
