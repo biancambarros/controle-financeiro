@@ -46,6 +46,14 @@ MAPA_CORES_RENDAS = {
     "Plano de saúde": "#06D6A0",    # Verde Esmeralda/Teal Vivo (era o verde profundo fechado)
 }
 
+METAS_CUSTOS = {
+    "Despesas essenciais": 6000.00,
+    "Gastos não essenciais": 1500.00,
+    "Impostos e taxas": 2300.00
+}
+
+# Alvo de aportes por mês (Substitua pelo seu valor real)
+META_INVESTIMENTOS = 800.00
 
 st.set_page_config(page_title="💲 Dashboard Financeiro", layout="wide")
 
@@ -384,7 +392,7 @@ def render_raiox(df):
         st.plotly_chart(fig_fav, use_container_width=True, key="top_fav")
         
 def render_projeções_completo(df):
-    st.header("🔮 Projeções Futuras")
+    #st.header("🔮 Projeções Futuras")
     df_parcelas = df[df['Parcela'].astype(str).str.contains('/')].copy()
     if df_parcelas.empty:
         st.info("Nenhuma parcela detectada.")
@@ -433,6 +441,83 @@ def render_projeções_completo(df):
     # Exibindo a tabela com a coluna 'Parcela' visível e na ordem mais lógica
     st.dataframe(df_show[['Transação', 'Banco', 'Parcela', 'Valor']], hide_index=True, use_container_width=True)
 
+def render_metas(df):
+    meses_disp = [m for m in MONTHS_ORDER if m in df['Mes_Pagamento'].unique()]
+    mes_atual = MONTHS_ORDER[datetime.datetime.now().month - 1]
+    idx = meses_disp.index(mes_atual) if mes_atual in meses_disp else 0
+    mes_sel = st.selectbox("Mês de Avaliação:", meses_disp, index=idx, key="sel_mes_metas")
+    
+    df_mes = df[df['Mes_Pagamento'] == mes_sel].copy()
+    
+    # --- 1. INVESTIMENTOS ---
+    st.subheader("📈 Meta de Investimentos")
+    
+    # Calculando aporte líquido igual na aba de saúde
+    saldo_investimentos = df_mes[df_mes['Macro_Grupo'] == "Investimentos"]['Valor'].sum()
+    total_investido = abs(saldo_investimentos) if saldo_investimentos < 0 else 0
+    
+    diff_inv = total_investido - META_INVESTIMENTOS
+    percent_inv = (total_investido / META_INVESTIMENTOS) * 100 if META_INVESTIMENTOS > 0 else 0
+    
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Alvo Mensal", f"R$ {formata_br(META_INVESTIMENTOS)}")
+    # Delta: Verde se investiu mais que a meta, Vermelho se investiu menos
+    c2.metric("Realizado", f"R$ {formata_br(total_investido)}", f"R$ {formata_br(diff_inv)} vs Meta", delta_color="normal")
+    c3.metric("Atingimento", f"{percent_inv:.1f}%")
+    
+    st.progress(min(percent_inv / 100, 1.0))
+    
+    st.divider()
+    
+    # --- 2. CUSTOS ---
+    st.subheader("🛑 Orçamento e Teto de Gastos")
+    
+    filtro_saidas = (
+        (df_mes['Valor'] < 0) & 
+        (df_mes['Macro_Grupo'] != "Investimentos") & 
+        (~df_mes['Tipo'].astype(str).str.contains("Pagamento de cartão", case=False, na=False))
+    )
+    df_gastos = df_mes[filtro_saidas]
+    
+    col_list = st.columns(len(METAS_CUSTOS))
+    dados_grafico = []
+    
+    for i, (cat, meta_valor) in enumerate(METAS_CUSTOS.items()):
+        gasto_real = df_gastos[df_gastos['Macro_Grupo'] == cat]['Valor'].abs().sum()
+        sobra = meta_valor - gasto_real
+        
+        dados_grafico.append({"Categoria": cat, "Métrica": "Teto (Orçamento)", "Valor": meta_valor})
+        dados_grafico.append({"Categoria": cat, "Métrica": "Gasto Realizado", "Valor": gasto_real})
+        
+        with col_list[i]:
+            # Delta: Verde se a sobra for positiva (dentro da meta), Vermelha se for negativa (estouro)
+            st.metric(
+                label=f"Teto: {cat}", 
+                value=f"R$ {formata_br(gasto_real)}", 
+                delta=f"R$ {formata_br(sobra)} (Saldo)", 
+                delta_color="normal"
+            )
+    
+    # Gráfico Comparativo de Barras Agrupadas
+    df_plot = pd.DataFrame(dados_grafico)
+    fig_metas = px.bar(
+        df_plot, 
+        x='Categoria', 
+        y='Valor', 
+        color='Métrica', 
+        barmode='group',
+        color_discrete_map={
+            "Teto (Orçamento)": "#8D99AE", # Cinza Metálico
+            "Gasto Realizado": "#EF476F"   # Rosa Vibrante (nossa cor de custo!)
+        },
+        title="<b>Orçamento vs Realizado por Grupo</b>"
+    )
+    fig_metas.update_traces(hovertemplate="<b>%{x}</b><br>%{color}: R$ %{y:,.2f}<extra></extra>")
+    fig_metas.update_layout(title_font=dict(size=24, family="sans-serif"), title_x=0)
+    fig_metas.update_layout(separators=",.", xaxis_title=None, yaxis_title="Valor (R$)")
+    
+    st.plotly_chart(fig_metas, use_container_width=True, key="bar_metas")
+    
 # --- MAIN ---
 def main():
     st.title("Controle Financeiro")
@@ -466,7 +551,7 @@ def main():
         render_projeções_completo(df)
         
     elif aba_ativa == "🎯 Metas":
-        st.info("Aba de metas em construção...")
+        render_metas(df)
         
 if __name__ == "__main__":
     if check_password(): main()
