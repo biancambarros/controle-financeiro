@@ -326,7 +326,7 @@ def render_raiox(df):
                 path=['Macro_Grupo', 'Tipo', 'Transação'],
                 values='Valor_Abs', 
                 color_discrete_sequence=[MAPA_CORES_MACRO[sel_macro]],
-                title=f"<b>Detalhes: {sel_macro}</b>",
+                title=f"<b>{sel_macro}</b>",
                 height=500
             )
             fig_sun.update_traces(
@@ -361,7 +361,7 @@ def render_raiox(df):
             color='Valor_Abs', # Ativa o degradê de intensidade
             color_continuous_scale=["#FFD6E0", "#EF476F", "#8A0A2A"], 
             text='Valor_Abs',  
-            title="<b>Top 10 Maiores Favorecidos (Acumulado)</b>",
+            title="<b>Top 10 Maiores Favorecidos neste ano</b>",
             height=600         
         )
         
@@ -396,23 +396,42 @@ def render_projeções_completo(df):
         try:
             atual, total = map(int, row['Parcela'].split('/'))
             for i in range(total - atual + 1):
+                # 1. Calcula a parcela exata do mês projetado
+                parcela_calculada = f"{atual + i}/{total}"
+                
                 projections.append({
                     'Mes': MONTHS_ORDER[(current_month_idx + i) % 12],
-                    'Valor': abs(row['Valor']), 'Transação': row['Transação'], 'Banco': row['Banco']
+                    'Valor': abs(row['Valor']), 
+                    'Transação': row['Transação'], 
+                    'Banco': row['Banco'],
+                    'Parcela': parcela_calculada # <--- Adicionando à tabela
                 })
         except: continue
     
     df_proj = pd.DataFrame(projections)
     df_proj['Mes'] = pd.Categorical(df_proj['Mes'], categories=MONTHS_ORDER, ordered=True)
     
-    fig_line = px.line(df_proj.groupby('Mes', observed=True)['Valor'].sum().reset_index(), x='Mes', y='Valor', title="Custo Fixo Futuro", markers=True)
+    # 2. Gráfico de Linha na cor vermelha/vibrante da paleta
+    fig_line = px.line(
+        df_proj.groupby('Mes', observed=True)['Valor'].sum().reset_index(), 
+        x='Mes', 
+        y='Valor', 
+        title="<b>Custo Fixo Futuro</b>", 
+        markers=True,
+        color_discrete_sequence=["#EF476F"] # <--- Forçando a cor aqui
+    )
     fig_line.update_layout(title_font=dict(size=24, family="sans-serif"), title_x=0)
     fig_line.update_layout(separators=",.")
     st.plotly_chart(fig_line, use_container_width=True, key="line_proj")
     
     mes_sel = st.selectbox("Detalhar mês futuro:", df_proj['Mes'].unique(), key="sel_mes_proj")
-    st.dataframe(df_proj[df_proj['Mes'] == mes_sel].sort_values('Valor', ascending=False), hide_index=True, use_container_width=True)
-
+    
+    # 3. Filtrando o mês selecionado e aplicando formato brasileiro no valor
+    df_show = df_proj[df_proj['Mes'] == mes_sel].sort_values('Valor', ascending=False).copy()
+    df_show['Valor'] = df_show['Valor'].apply(formata_br)
+    
+    # Exibindo a tabela com a coluna 'Parcela' visível e na ordem mais lógica
+    st.dataframe(df_show[['Transação', 'Banco', 'Parcela', 'Valor']], hide_index=True, use_container_width=True)
 
 # --- MAIN ---
 def main():
