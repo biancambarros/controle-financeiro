@@ -301,7 +301,7 @@ def render_raiox(df):
             color='Macro_Grupo', 
             barmode='stack',
             color_discrete_map=MAPA_CORES_MACRO,
-            title="<b>Evolução dos Custos</b>"
+            title="<b>Evolução dos Custos por Grupo</b>"
         )
         fig.update_traces(hovertemplate="Grupo: %{fullData.name}<br>Valor: R$ %{y:,.2f}<extra></extra>")
         fig.update_layout(title_font=dict(size=24, family="sans-serif"), title_x=0)
@@ -317,21 +317,21 @@ def render_raiox(df):
             df_d = df_d[df_d['Mes_Pagamento'] == sel_mes]
             
         if not df_d.empty:
-            # 1. Truque da Raiz Falsa para o centro branco
-            df_d['Centro'] = 'Total'
-            
+            # O TRUQUE DO DEGRADÊ: 
+            # 1. O path começa no Macro_Grupo
+            # 2. Usamos color_discrete_sequence para passar a cor exata do macro.
+            # O Plotly automaticamente gera o degradê para as fatias filhas!
             fig_sun = px.sunburst(
                 df_d, 
-                path=['Centro', 'Macro_Grupo', 'Tipo', 'Transação'],  # Centro virou a raiz
+                path=['Macro_Grupo', 'Tipo', 'Transação'],
                 values='Valor_Abs', 
-                color='Macro_Grupo',
-                color_discrete_map=MAPA_CORES_MACRO,
-                title=f"<b>{sel_macro}</b>",
+                color_discrete_sequence=[MAPA_CORES_MACRO[sel_macro]],
+                title=f"<b>Detalhes: {sel_macro}</b>",
                 height=500
             )
             fig_sun.update_traces(
                 hovertemplate="<b>%{label}</b><br>Valor: R$ %{value:,.2f}<extra></extra>",
-                root_color="white"  # 2. Força o centro a ficar totalmente branco
+                root_color="white" # 3. Deixa SOMENTE a primeira camada (Macro_Grupo) com fundo branco
             )
             fig_sun.update_layout(title_font=dict(size=24, family="sans-serif"), title_x=0)
             fig_sun.update_layout(separators=",.", margin=dict(t=60, l=10, r=10, b=10))
@@ -339,7 +339,7 @@ def render_raiox(df):
 
     st.divider()
     
-    # 3. Filtros robustos para remover você e os cartões do ranking
+    # Filtros de Favorecido (Removendo "Bianca" e "Cartões")
     filtros_fav = (
         (df_gastos['Favorecido'] != "N/A") & 
         (~df_gastos['Favorecido'].str.contains("Bianca Matos de Barros", case=False, na=False)) &
@@ -352,31 +352,31 @@ def render_raiox(df):
     if df_fav.empty:
         st.info("Nenhum 'Favorecido' preenchido nos registros para gerar o ranking após os filtros.")
     else:
-        # Gráfico com barras maiores e termômetro de cores
+        # Top 10 Favorecidos com Degradê
         fig_fav = px.bar(
             df_fav.sort_values('Valor_Abs'), 
             x='Valor_Abs', 
             y='Favorecido', 
             orientation='h', 
             color='Valor_Abs', # Ativa o degradê de intensidade
-            color_continuous_scale=["#FFD6E0", "#EF476F", "#8A0A2A"], # Gradiente desenhado para a sua paleta
-            text='Valor_Abs',  # Escreve o valor na barra
-            title="<b>Top 10 Maiores Favorecidos neste ano </b>",
-            height=600         # Estica o gráfico para as barras ficarem "gordas" e fáceis de ler
+            color_continuous_scale=["#FFD6E0", "#EF476F", "#8A0A2A"], 
+            text='Valor_Abs',  
+            title="<b>Top 10 Maiores Favorecidos (Acumulado)</b>",
+            height=600         
         )
         
         fig_fav.update_traces(
-            texttemplate="<b>R$ %{text:,.2f}</b>", # Formata a etiqueta dentro da barra
+            texttemplate="<b>R$ %{text:,.2f}</b>", 
             textposition="inside",
-            textfont_size=16,                      # Aumenta o tamanho dos números
+            textfont_size=16,                      
             hovertemplate="Favorecido: %{y}<br>Total: R$ %{x:,.2f}<extra></extra>"
         )
         
         fig_fav.update_layout(
             title_font=dict(size=24, family="sans-serif"), 
             title_x=0,
-            coloraxis_showscale=False,              # Esconde a régua de cor lateral
-            yaxis=dict(tickfont=dict(size=16)),     # Aumenta a fonte dos nomes (eixo Y)
+            coloraxis_showscale=False,              
+            yaxis=dict(tickfont=dict(size=16)),     
             xaxis=dict(tickfont=dict(size=14))
         )
         fig_fav.update_layout(separators=",.", xaxis_title=None, yaxis_title=None)
