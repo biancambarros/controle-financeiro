@@ -56,7 +56,9 @@ METAS_CUSTOS = {
     "Impostos e taxas": float(st.secrets.get("META_IMPOSTOS", 0.00))
 }
 
-META_INVESTIMENTOS = float(st.secrets.get("META_INVESTIMENTOS", 0.00))st.set_page_config(page_title="💲 Dashboard Financeiro", layout="wide")
+META_INVESTIMENTOS = float(st.secrets.get("META_INVESTIMENTOS", 0.00))
+
+st.set_page_config(page_title="💲 Dashboard Financeiro", layout="wide")
 
 
 # --- AUTENTICAÇÃO ---
